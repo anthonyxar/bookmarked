@@ -1,0 +1,26 @@
+# env
+.env
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+*.pyc
+
+# Flutter / Dart
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+app/build/
+app/ios/Flutter/.last_build_id
+app/android/.gradle
+app/android/local.properties
+app/**/generated_plugin_registrant.dart
+
+# IDE
+.vscode/
+.idea/
+*.iml
