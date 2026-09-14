@@ -12,6 +12,17 @@ import 'edit_review_screen.dart';
 
 final _dateFmt = DateFormat('MMM d, yyyy');
 
+Widget _coverPlaceholder(Color color, String initials) {
+  return Container(
+    width: 84,
+    height: 122,
+    alignment: Alignment.center,
+    padding: const EdgeInsets.all(8),
+    color: color,
+    child: Text(initials, textAlign: TextAlign.center, style: AppTheme.serif.copyWith(fontSize: 14, color: Colors.white)),
+  );
+}
+
 class BookDetailScreen extends ConsumerStatefulWidget {
   final String bookId;
   const BookDetailScreen({super.key, required this.bookId});
@@ -99,13 +110,17 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 84,
-                height: 122,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: cover, borderRadius: BorderRadius.circular(6)),
-                child: Text(book.initials, textAlign: TextAlign.center, style: AppTheme.serif.copyWith(fontSize: 14, color: Colors.white)),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: book.coverUrl != null
+                    ? Image.network(
+                        book.coverUrl!,
+                        width: 84,
+                        height: 122,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _coverPlaceholder(cover, book.initials),
+                      )
+                    : _coverPlaceholder(cover, book.initials),
               ),
               const SizedBox(width: 14),
               Expanded(
