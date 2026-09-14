@@ -8,6 +8,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/star_rating.dart';
+import 'edit_review_screen.dart';
 
 final _dateFmt = DateFormat('MMM d, yyyy');
 
@@ -56,11 +57,29 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
     }
   }
 
+  Future<void> _openEditReview() async {
+    if (_book == null) return;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => EditReviewScreen(book: _book!)),
+    );
+    if (saved == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.paper,
-      appBar: AppBar(title: const Text('Book Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+      appBar: AppBar(
+        title: const Text('Book Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        actions: [
+          if (_book != null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: 'Edit review',
+              onPressed: _openEditReview,
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.green))
           : _error != null
@@ -211,14 +230,22 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                     child: Text(q, style: AppTheme.serif.copyWith(fontSize: 13, fontStyle: FontStyle.italic, height: 1.5)),
                   )),
           ] else
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Center(
-                child: Text(
-                  "Mark this book as read once you've finished it to unlock ratings, thoughts and your full review.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.inkSoft, fontSize: 12.5, height: 1.5),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30),
+              child: Column(
+                children: [
+                  const Text(
+                    "Write your review once you've finished this one — ratings, thoughts, quotes and all.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.inkSoft, fontSize: 12.5, height: 1.5),
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton(
+                    onPressed: _openEditReview,
+                    style: OutlinedButton.styleFrom(foregroundColor: AppColors.green, side: const BorderSide(color: AppColors.green)),
+                    child: const Text('Write a Review'),
+                  ),
+                ],
               ),
             ),
         ],
