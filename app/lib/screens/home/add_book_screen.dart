@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../providers/books_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../theme.dart';
+import '../../widgets/date_field.dart';
 import '../../widgets/genre_chip.dart';
 import '../../widgets/star_rating.dart';
-
-final _dateFmt = DateFormat('yyyy-MM-dd');
+import '../../widgets/switch_tile.dart';
+import '../../widgets/yes_no_toggle.dart';
 
 class AddBookScreen extends ConsumerStatefulWidget {
   const AddBookScreen({super.key});
@@ -63,8 +63,8 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
       'genre': _genre,
       'purchased': _purchased,
       'read': _read,
-      if (_read && _startDate != null) 'start_date': _dateFmt.format(_startDate!),
-      if (_read && _endDate != null) 'end_date': _dateFmt.format(_endDate!),
+      if (_read && _startDate != null) 'start_date': dateFieldFmt.format(_startDate!),
+      if (_read && _endDate != null) 'end_date': dateFieldFmt.format(_endDate!),
       if (_read) 'rating_cover': _ratings['cover'],
       if (_read) 'rating_writing': _ratings['writing'],
       if (_read) 'rating_plot': _ratings['plot'],
@@ -117,18 +117,18 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
             const SizedBox(height: 18),
             Row(
               children: [
-                Expanded(child: _SwitchTile(label: 'Purchased', value: _purchased, onChanged: (v) => setState(() => _purchased = v))),
+                Expanded(child: SwitchTile(label: 'Purchased', value: _purchased, onChanged: (v) => setState(() => _purchased = v))),
                 const SizedBox(width: 10),
-                Expanded(child: _SwitchTile(label: 'Read', value: _read, onChanged: (v) => setState(() => _read = v))),
+                Expanded(child: SwitchTile(label: 'Read', value: _read, onChanged: (v) => setState(() => _read = v))),
               ],
             ),
             if (_read) ...[
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: _DateField(label: 'Started', date: _startDate, onTap: () => _pickDate(isStart: true))),
+                  Expanded(child: AppDateField(label: 'Started', date: _startDate, onTap: () => _pickDate(isStart: true))),
                   const SizedBox(width: 10),
-                  Expanded(child: _DateField(label: 'Finished', date: _endDate, onTap: () => _pickDate(isStart: false))),
+                  Expanded(child: AppDateField(label: 'Finished', date: _endDate, onTap: () => _pickDate(isStart: false))),
                 ],
               ),
               const SizedBox(height: 18),
@@ -162,10 +162,15 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: _SwitchTile(label: 'Enjoyed it', value: _enjoyed, onChanged: (v) => setState(() => _enjoyed = v))),
+                  Expanded(child: YesNoToggle(label: 'Enjoyed it', value: _enjoyed, onChanged: (v) => setState(() => _enjoyed = v))),
                   const SizedBox(width: 10),
-                  Expanded(child: _SwitchTile(label: 'Would reread', value: _readAgain, onChanged: (v) => setState(() => _readAgain = v))),
+                  Expanded(child: YesNoToggle(label: 'Would reread', value: _readAgain, onChanged: (v) => setState(() => _readAgain = v))),
                 ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "You can add your full review — thoughts, favourite characters, quotes — from the book's detail page once it's saved.",
+                style: TextStyle(fontSize: 11, color: AppColors.inkSoft, fontStyle: FontStyle.italic, height: 1.4),
               ),
             ],
             const SizedBox(height: 22),
@@ -178,60 +183,6 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SwitchTile extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _SwitchTile({required this.label, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(10)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-            Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.green),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final VoidCallback onTap;
-  const _DateField({required this.label, required this.date, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label.toUpperCase(), style: labelCapsStyle),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.lineStrong))),
-            child: Text(
-              date != null ? _dateFmt.format(date!) : 'MM/DD/YYYY',
-              style: TextStyle(fontSize: 13, color: date != null ? AppColors.ink : AppColors.lineStrong),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
