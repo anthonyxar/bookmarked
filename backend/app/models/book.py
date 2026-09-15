@@ -27,6 +27,7 @@ class Book(Base):
     book_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     genre: Mapped[str | None] = mapped_column(String(120), nullable=True)
     cover_color: Mapped[str] = mapped_column(String(9), default="#3F5D4E", nullable=False)
+    cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     published: Mapped[str | None] = mapped_column(String(60), nullable=True)
     pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
     format: Mapped[BookFormat] = mapped_column(Enum(BookFormat, name="book_format"), default=BookFormat.physical, nullable=False)

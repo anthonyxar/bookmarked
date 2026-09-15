@@ -30,17 +30,17 @@ class BookCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 52,
-              height: 76,
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: cover, borderRadius: BorderRadius.circular(5)),
-              child: Text(
-                book.initials,
-                textAlign: TextAlign.center,
-                style: AppTheme.serif.copyWith(fontSize: 10, color: AppColors.paperSoft),
-              ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: book.coverUrl != null
+                  ? Image.network(
+                      book.coverUrl!,
+                      width: 52,
+                      height: 76,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _CoverPlaceholder(color: cover, initials: book.initials),
+                    )
+                  : _CoverPlaceholder(color: cover, initials: book.initials),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -85,6 +85,28 @@ class BookCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CoverPlaceholder extends StatelessWidget {
+  final Color color;
+  final String initials;
+  const _CoverPlaceholder({required this.color, required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 76,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(6),
+      color: color,
+      child: Text(
+        initials,
+        textAlign: TextAlign.center,
+        style: AppTheme.serif.copyWith(fontSize: 10, color: AppColors.paperSoft),
       ),
     );
   }

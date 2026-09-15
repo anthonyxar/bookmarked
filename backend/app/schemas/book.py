@@ -13,6 +13,7 @@ class BookCreate(BaseModel):
     book_no: int | None = None
     genre: str | None = None
     cover_color: str = "#3F5D4E"
+    cover_url: str | None = None
     published: str | None = None
     pages: int | None = None
     format: BookFormat = BookFormat.physical
@@ -45,6 +46,7 @@ class BookUpdate(BaseModel):
     book_no: int | None = None
     genre: str | None = None
     cover_color: str | None = None
+    cover_url: str | None = None
     published: str | None = None
     pages: int | None = None
     format: BookFormat | None = None
@@ -81,6 +83,7 @@ class BookOut(BaseModel):
     book_no: int | None
     genre: str | None
     cover_color: str
+    cover_url: str | None
     published: str | None
     pages: int | None
     format: BookFormat
@@ -109,3 +112,12 @@ class BookOut(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+
+class BookSearchResult(BaseModel):
+    title: str
+    author: str
+    cover_url: str | None = None
+    pages: int | None = None
+    published: str | None = None
+    genre: str | None = None

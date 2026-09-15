@@ -6,6 +6,7 @@ class Book {
   final int? bookNo;
   final String? genre;
   final String coverColor;
+  final String? coverUrl;
   final String? published;
   final int? pages;
   final String format;
@@ -40,6 +41,7 @@ class Book {
     this.bookNo,
     this.genre,
     required this.coverColor,
+    this.coverUrl,
     this.published,
     this.pages,
     required this.format,
@@ -82,6 +84,7 @@ class Book {
         bookNo: json['book_no'] as int?,
         genre: json['genre'] as String?,
         coverColor: json['cover_color'] as String,
+        coverUrl: json['cover_url'] as String?,
         published: json['published'] as String?,
         pages: json['pages'] as int?,
         format: json['format'] as String,
