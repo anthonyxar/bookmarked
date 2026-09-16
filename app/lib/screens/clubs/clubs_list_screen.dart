@@ -191,13 +191,19 @@ class _ClubsListScreenState extends ConsumerState<ClubsListScreen> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                ClubImage(imageUrl: club.imageUrl, name: club.name, size: 48, borderRadius: 10),
-                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(club.name, style: AppTheme.serif.copyWith(fontSize: 16)),
+                                      Row(
+                                        children: [
+                                          ClubImage(imageUrl: club.imageUrl, name: club.name, size: 22, borderRadius: 6),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(club.name, style: AppTheme.serif.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 8),
                                       if (book == null)
                                         const Text('No book picked yet', style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft))
