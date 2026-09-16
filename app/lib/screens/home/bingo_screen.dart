@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/bingo_provider.dart';
+import '../../providers/year_provider.dart';
 import '../../theme.dart';
 import '../../widgets/bingo_cell_widget.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -74,7 +75,7 @@ class _BingoScreenState extends ConsumerState<BingoScreen> {
             isDense: true,
             items: [for (final y in options) DropdownMenuItem(value: y, child: Text('$y'))],
             onChanged: (y) {
-              if (y != null) ref.read(bingoProvider.notifier).load(year: y);
+              if (y != null) ref.read(selectedYearProvider.notifier).state = y;
             },
           ),
         ),

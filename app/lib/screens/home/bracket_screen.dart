@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/bracket.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bracket_provider.dart';
+import '../../providers/year_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/error_state.dart';
@@ -105,7 +106,7 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              onPressed: () => ref.read(bracketProvider.notifier).load(year: state.selectedYear - 1),
+                              onPressed: () => ref.read(selectedYearProvider.notifier).state = state.selectedYear - 1,
                               icon: const Icon(Icons.chevron_left, size: 20),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
@@ -114,7 +115,7 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
                             IconButton(
                               onPressed: state.selectedYear >= DateTime.now().year
                                   ? null
-                                  : () => ref.read(bracketProvider.notifier).load(year: state.selectedYear + 1),
+                                  : () => ref.read(selectedYearProvider.notifier).state = state.selectedYear + 1,
                               icon: const Icon(Icons.chevron_right, size: 20),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),

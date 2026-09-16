@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/bingo.dart';
 import '../services/api_client.dart';
 import 'auth_provider.dart';
+import 'year_provider.dart';
 
 class BingoState {
   final BingoCard? card;
@@ -43,7 +44,7 @@ class BingoState {
 
 class BingoNotifier extends StateNotifier<BingoState> {
   final ApiClient _api;
-  BingoNotifier(this._api) : super(BingoState(selectedYear: DateTime.now().year));
+  BingoNotifier(this._api, int initialYear) : super(BingoState(selectedYear: initialYear));
 
   Future<void> load({int? year}) async {
     final selectedYear = year ?? state.selectedYear;
@@ -94,5 +95,9 @@ class BingoNotifier extends StateNotifier<BingoState> {
 }
 
 final bingoProvider = StateNotifierProvider<BingoNotifier, BingoState>((ref) {
-  return BingoNotifier(ref.watch(apiClientProvider));
+  final notifier = BingoNotifier(ref.watch(apiClientProvider), ref.read(selectedYearProvider));
+  ref.listen<int>(selectedYearProvider, (previous, next) {
+    if (previous != next) notifier.load(year: next);
+  });
+  return notifier;
 });

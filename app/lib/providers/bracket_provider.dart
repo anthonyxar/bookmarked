@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/bracket.dart';
 import '../services/api_client.dart';
 import 'auth_provider.dart';
+import 'year_provider.dart';
 
 class BracketState {
   final BracketData? bracket;
@@ -23,7 +24,7 @@ class BracketState {
 
 class BracketNotifier extends StateNotifier<BracketState> {
   final ApiClient _api;
-  BracketNotifier(this._api) : super(BracketState(selectedYear: DateTime.now().year));
+  BracketNotifier(this._api, int initialYear) : super(BracketState(selectedYear: initialYear));
 
   Future<void> load({int? year}) async {
     final selectedYear = year ?? state.selectedYear;
@@ -65,5 +66,9 @@ class BracketNotifier extends StateNotifier<BracketState> {
 }
 
 final bracketProvider = StateNotifierProvider<BracketNotifier, BracketState>((ref) {
-  return BracketNotifier(ref.watch(apiClientProvider));
+  final notifier = BracketNotifier(ref.watch(apiClientProvider), ref.read(selectedYearProvider));
+  ref.listen<int>(selectedYearProvider, (previous, next) {
+    if (previous != next) notifier.load(year: next);
+  });
+  return notifier;
 });

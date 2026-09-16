@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/dashboard.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/year_provider.dart';
 import '../../theme.dart';
 import 'bracket_screen.dart';
 
@@ -16,7 +17,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(dashboardProvider);
     final user = ref.watch(authProvider).user;
-    final selectedYear = ref.watch(dashboardYearProvider);
+    final selectedYear = ref.watch(selectedYearProvider);
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -39,7 +40,7 @@ class DashboardScreen extends ConsumerWidget {
                     _YearDropdown(
                       years: dash.availableYears,
                       selected: selectedYear,
-                      onChanged: (y) => ref.read(dashboardYearProvider.notifier).state = y,
+                      onChanged: (y) => ref.read(selectedYearProvider.notifier).state = y,
                     ),
                   ],
                 ),

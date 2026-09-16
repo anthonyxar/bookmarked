@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/challenge.dart';
 import '../../providers/challenges_provider.dart';
+import '../../providers/year_provider.dart';
 import '../../theme.dart';
 import '../../widgets/error_state.dart';
 
@@ -29,7 +30,7 @@ class ChallengesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final challengesAsync = ref.watch(challengesProvider);
-    final selectedYear = ref.watch(challengesYearProvider);
+    final selectedYear = ref.watch(selectedYearProvider);
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -56,7 +57,7 @@ class ChallengesScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: () => ref.read(challengesYearProvider.notifier).state = selectedYear - 1,
+                          onPressed: () => ref.read(selectedYearProvider.notifier).state = selectedYear - 1,
                           icon: const Icon(Icons.chevron_left, size: 20),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -65,7 +66,7 @@ class ChallengesScreen extends ConsumerWidget {
                         IconButton(
                           onPressed: selectedYear >= DateTime.now().year
                               ? null
-                              : () => ref.read(challengesYearProvider.notifier).state = selectedYear + 1,
+                              : () => ref.read(selectedYearProvider.notifier).state = selectedYear + 1,
                           icon: const Icon(Icons.chevron_right, size: 20),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
