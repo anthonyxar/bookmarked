@@ -5,6 +5,7 @@ import '../../models/dashboard.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../theme.dart';
+import 'bracket_screen.dart';
 
 const _monthLabels = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
@@ -86,6 +87,30 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 14),
                 _Card(title: 'By Month', child: _MonthChart(dash: dash)),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BracketScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.emoji_events_outlined, size: 20, color: AppColors.gold),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Book of the Year Bracket', style: AppTheme.serif.copyWith(fontSize: 14)),
+                              const Text('Pick a favourite each month, crown a champion', style: TextStyle(fontSize: 10.5, color: AppColors.inkSoft)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: AppColors.lineStrong),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

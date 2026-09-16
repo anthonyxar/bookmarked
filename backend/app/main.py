@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import auth, bingo, books, clubs, dashboard, users
+from app.routers import auth, bingo, books, bracket, challenges, clubs, dashboard, users
 
 logger = logging.getLogger("bookmarked")
 
@@ -40,6 +40,8 @@ app.include_router(books.router)
 app.include_router(bingo.router)
 app.include_router(clubs.router)
 app.include_router(dashboard.router)
+app.include_router(challenges.router)
+app.include_router(bracket.router)
 
 
 @app.get("/health")

@@ -16,7 +16,7 @@ import 'book_detail_screen.dart';
 const _filters = [
   ('all', 'All'),
   ('toBuy', 'To Buy'),
-  ('reading', 'Reading'),
+  ('reading', 'To Be Read'),
   ('read', 'Read'),
 ];
 

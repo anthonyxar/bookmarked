@@ -2,34 +2,24 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// The app's mark: a small badge used next to the "Bookmarked" wordmark.
+/// The app's mark: a bookmark silhouette filled with a tiny shelf of stacked
+/// book spines, used next to the "Bookmarked" wordmark and on auth screens.
 class AppIcon extends StatelessWidget {
   final double size;
   const AppIcon({super.key, this.size = 30});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: AppColors.green,
-        borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      alignment: Alignment.center,
-      child: SizedBox(
-        width: size * 0.62,
-        height: size * 0.62,
-        child: CustomPaint(painter: _BookmarkShelfPainter()),
-      ),
+      child: CustomPaint(painter: _BookmarkShelfPainter()),
     );
   }
 }
 
-/// Paints a bookmark silhouette (matching the previous `bookmark_rounded`
-/// proportions) filled with a tiny shelf of stacked book spines instead of
-/// a solid color, plus a thin outline so the bookmark shape stays legible.
+/// Paints a bookmark silhouette filled with rows of book spines, framed by
+/// its own outline instead of sitting on a solid background badge.
 class _BookmarkShelfPainter extends CustomPainter {
   static const _spineColors = [
     AppColors.gold,
@@ -39,35 +29,36 @@ class _BookmarkShelfPainter extends CustomPainter {
     Color(0xFF6B6248),
   ];
 
-  // Rows of spines, each as (xStart, width) in a 6..18 unit coordinate
-  // space (24-unit design box), with an index into _spineColors.
+  // Rows of spines, each as (xStart, width) in a 3..21 unit coordinate
+  // space (24-unit design box, matching the bookmark's own width), with an
+  // index into _spineColors.
   static const _rows = [
     [
-      [6.0, 2.3, 0],
-      [8.65, 1.7, 1],
-      [10.7, 2.6, 2],
-      [13.65, 1.6, 3],
-      [15.6, 2.4, 4],
+      [3.00, 3.45, 0],
+      [6.98, 2.55, 1],
+      [10.05, 3.90, 2],
+      [14.48, 2.40, 3],
+      [17.40, 3.60, 4],
     ],
     [
-      [6.0, 3.0, 1],
-      [9.4, 2.3, 2],
-      [12.1, 2.9, 3],
-      [15.4, 2.6, 4],
+      [3.00, 4.50, 1],
+      [8.10, 3.45, 2],
+      [12.15, 4.35, 3],
+      [17.10, 3.90, 4],
     ],
     [
-      [6.0, 2.0, 2],
-      [8.3, 2.5, 4],
-      [11.1, 1.8, 0],
-      [13.2, 2.3, 1],
-      [15.8, 2.2, 3],
+      [3.00, 3.00, 2],
+      [6.45, 3.75, 4],
+      [10.65, 2.70, 0],
+      [13.80, 3.45, 1],
+      [17.70, 3.30, 3],
     ],
   ];
 
   static const _rowBands = [
-    [3.3, 8.6],
-    [9.4, 14.6],
-    [15.4, 20.7],
+    [2.33, 8.22],
+    [9.11, 14.89],
+    [15.78, 21.67],
   ];
 
   @override
@@ -76,7 +67,7 @@ class _BookmarkShelfPainter extends CustomPainter {
     double dx(double v) => v * s;
 
     Path bookmarkPath() {
-      const x0 = 6.0, x1 = 18.0, y0 = 3.0, bottomY = 21.0, notchY = 16.5, r = 1.6;
+      const x0 = 3.0, x1 = 21.0, y0 = 2.0, bottomY = 22.0, notchY = 17.0, r = 2.2;
       return Path()
         ..moveTo(dx(x0), dx(y0 + r))
         ..quadraticBezierTo(dx(x0), dx(y0), dx(x0 + r), dx(y0))
@@ -100,16 +91,16 @@ class _BookmarkShelfPainter extends CustomPainter {
       for (final spine in _rows[r]) {
         final rect = RRect.fromRectAndCorners(
           Rect.fromLTRB(dx(spine[0] as double), dx(band[0]), dx((spine[0] as double) + (spine[1] as double)), dx(band[1])),
-          topLeft: Radius.circular(dx(0.35)),
-          topRight: Radius.circular(dx(0.35)),
+          topLeft: Radius.circular(dx(0.4)),
+          topRight: Radius.circular(dx(0.4)),
         );
         canvas.drawRRect(rect, Paint()..color = _spineColors[spine[2] as int]);
       }
     }
 
     final shelfPaint = Paint()..color = AppColors.ink.withValues(alpha: 0.85);
-    canvas.drawRect(Rect.fromLTRB(0, dx(8.6), size.width, dx(9.4)), shelfPaint);
-    canvas.drawRect(Rect.fromLTRB(0, dx(14.6), size.width, dx(15.4)), shelfPaint);
+    canvas.drawRect(Rect.fromLTRB(0, dx(8.22), size.width, dx(9.11)), shelfPaint);
+    canvas.drawRect(Rect.fromLTRB(0, dx(14.89), size.width, dx(15.78)), shelfPaint);
 
     canvas.restore();
 
@@ -117,9 +108,9 @@ class _BookmarkShelfPainter extends CustomPainter {
       path,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = dx(1.0)
+        ..strokeWidth = dx(1.3)
         ..strokeJoin = StrokeJoin.round
-        ..color = AppColors.ink.withValues(alpha: 0.55),
+        ..color = AppColors.ink.withValues(alpha: 0.9),
     );
   }
 

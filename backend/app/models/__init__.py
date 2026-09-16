@@ -1,6 +1,7 @@
 from app.models.user import User
 from app.models.book import Book, BookFormat
 from app.models.bingo import BingoCard, BingoSquare
+from app.models.bracket import BracketPick, MonthlyFavorite
 from app.models.club import (
     BookClub,
     ClubBingoCard,
@@ -21,6 +22,8 @@ __all__ = [
     "BookFormat",
     "BingoCard",
     "BingoSquare",
+    "BracketPick",
+    "MonthlyFavorite",
     "BookClub",
     "ClubBingoCard",
     "ClubBingoSquare",

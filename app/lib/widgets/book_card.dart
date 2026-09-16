@@ -69,17 +69,10 @@ class BookCard extends StatelessWidget {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _FlagPill(icon: Icons.shopping_bag_outlined, label: 'Owned', active: book.purchased, activeColor: AppColors.green),
-                      _FlagPill(icon: Icons.menu_book_outlined, label: 'Read', active: book.read, activeColor: AppColors.terra),
-                      if (!book.purchased) _AmazonLink(book: book),
-                    ],
-                  ),
+                  if (!book.purchased) ...[
+                    const SizedBox(height: 8),
+                    _AmazonLink(book: book),
+                  ],
                   if (book.read) ...[
                     const SizedBox(height: 7),
                     Row(
@@ -100,11 +93,13 @@ class BookCard extends StatelessWidget {
                   ] else if (book.isReading) ...[
                     const SizedBox(height: 7),
                     Text('Started ${_dateFmt.format(book.startDate!)}',
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.terra)),
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
                   ],
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            _StatusRail(purchased: book.purchased, read: book.read),
           ],
         ),
       ),
@@ -157,24 +152,61 @@ class _AmazonLink extends StatelessWidget {
   }
 }
 
-class _FlagPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final Color activeColor;
-
-  const _FlagPill({required this.icon, required this.label, required this.active, required this.activeColor});
+/// Two fixed status dots shown on every shelf card: ownership (green owned /
+/// terra not-owned) and read progress (green read / orange to-be-read /
+/// outline when not owned). Always in the same spot so a whole shelf scans
+/// at a glance — see the "Book Owned and Read Status" design canvas.
+class _StatusRail extends StatelessWidget {
+  final bool purchased;
+  final bool read;
+  const _StatusRail({required this.purchased, required this.read});
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? activeColor : AppColors.lineStrong;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Column(
       children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 3),
-        Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+        _StatusDot(
+          filled: true,
+          color: purchased ? AppColors.green : AppColors.terra,
+          icon: purchased ? Icons.shopping_bag_outlined : Icons.shopping_cart_outlined,
+          iconColor: Colors.white,
+          tooltip: purchased ? 'Owned' : 'Not owned',
+        ),
+        const SizedBox(height: 6),
+        if (read)
+          const _StatusDot(filled: true, color: AppColors.green, icon: Icons.check, iconColor: Colors.white, tooltip: 'Read')
+        else if (purchased)
+          _StatusDot(filled: true, color: AppColors.orange, icon: Icons.schedule, iconColor: AppColors.ink, tooltip: 'To be read')
+        else
+          const _StatusDot(filled: false, color: AppColors.lineStrong, icon: Icons.schedule, iconColor: AppColors.lineStrong, tooltip: 'Not read'),
       ],
+    );
+  }
+}
+
+class _StatusDot extends StatelessWidget {
+  final bool filled;
+  final Color color;
+  final IconData icon;
+  final Color iconColor;
+  final String tooltip;
+  const _StatusDot({required this.filled, required this.color, required this.icon, required this.iconColor, required this.tooltip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: filled ? color : Colors.transparent,
+          border: filled ? null : Border.all(color: color, width: 1.5),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, size: 12, color: iconColor),
+      ),
     );
   }
 }

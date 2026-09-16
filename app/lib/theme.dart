@@ -15,6 +15,7 @@ class AppColors {
   static const terra = Color(0xFFA24E42);
   static const terraSoft = Color(0xFFF3E4E0);
   static const gold = Color(0xFFC9962F);
+  static const orange = Color(0xFFC97A3B);
   static const creamDark = Color(0xFFEDE6D6);
 
   static const coverPalette = [green, terra, gold, Color(0xFF8E5B8A), Color(0xFF4A6B7A), Color(0xFF6B6248)];

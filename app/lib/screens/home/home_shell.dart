@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme.dart';
 import '../clubs/clubs_list_screen.dart';
 import 'bingo_screen.dart';
+import 'challenges_screen.dart';
 import 'dashboard_screen.dart';
 import 'profile_screen.dart';
 import 'wishlist_screen.dart';
@@ -22,6 +23,7 @@ class _HomeShellState extends State<HomeShell> {
     DashboardScreen(),
     ClubsListScreen(),
     BingoScreen(),
+    ChallengesScreen(),
     ProfileScreen(),
   ];
 
@@ -30,6 +32,7 @@ class _HomeShellState extends State<HomeShell> {
     (icon: Icons.bar_chart_rounded, label: 'Stats'),
     (icon: Icons.groups_outlined, label: 'Clubs'),
     (icon: Icons.grid_on_rounded, label: 'Bingo'),
+    (icon: Icons.emoji_events_outlined, label: 'Challenges'),
     (icon: Icons.person_outline_rounded, label: 'Profile'),
   ];
 
