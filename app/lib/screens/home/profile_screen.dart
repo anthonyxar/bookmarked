@@ -1,15 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../theme.dart';
+import '../../widgets/confirm_dialog.dart';
+import '../../widgets/user_avatar.dart';
 
-class ProfileScreen extends ConsumerWidget {
+const _avatarContentTypes = {
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'webp': 'image/webp',
+  'gif': 'image/gif',
+};
+
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _uploadingAvatar = false;
+
+  Future<void> _pickAvatar() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800);
+    if (picked == null) return;
+
+    final extension = picked.name.split('.').last.toLowerCase();
+    final contentType = _avatarContentTypes[extension] ?? 'image/jpeg';
+
+    setState(() => _uploadingAvatar = true);
+    final bytes = await picked.readAsBytes();
+    final ok = await ref.read(authProvider.notifier).uploadAvatar(bytes: bytes, filename: picked.name, contentType: contentType);
+    if (!mounted) return;
+    setState(() => _uploadingAvatar = false);
+
+    if (!ok) {
+      final error = ref.read(authProvider).error ?? 'Could not upload that image';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await confirmDialog(
+      context,
+      title: 'Switch reader?',
+      message: "You'll need to sign in again to get back to your shelf.",
+      confirmLabel: 'Switch Reader',
+      danger: false,
+    );
+    if (confirmed) {
+      ref.read(authProvider.notifier).logout();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final dashboardAsync = ref.watch(dashboardProvider);
     final totalRead = dashboardAsync.asData?.value.totalRead ?? 0;
@@ -31,10 +81,29 @@ class ProfileScreen extends ConsumerWidget {
               decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(14)),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: AppColors.green,
-                    child: Text(user.initials, style: AppTheme.serif.copyWith(fontSize: 24, color: Colors.white)),
+                  GestureDetector(
+                    onTap: _uploadingAvatar ? null : _pickAvatar,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _uploadingAvatar
+                            ? const SizedBox(
+                                width: 64,
+                                height: 64,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+                              )
+                            : UserAvatar(avatarUrl: user.avatarUrl, initials: user.initials, size: 64),
+                        Positioned(
+                          bottom: -2,
+                          right: -2,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+                            child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(user.name, style: AppTheme.serif.copyWith(fontSize: 19)),
@@ -78,7 +147,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             GestureDetector(
-              onTap: () => ref.read(authProvider.notifier).logout(),
+              onTap: _confirmLogout,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 alignment: Alignment.center,

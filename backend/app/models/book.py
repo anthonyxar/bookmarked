@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import ARRAY, Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import ARRAY, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,7 +39,7 @@ class Book(Base):
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # journal-style review, all nullable until the book is read
-    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     rating_cover: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rating_writing: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rating_plot: Mapped[int | None] = mapped_column(Integer, nullable=True)

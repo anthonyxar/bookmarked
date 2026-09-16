@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
+import '../../widgets/app_icon.dart';
 import '../../widgets/genre_chip.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -58,7 +59,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             children: [
               Column(
                 children: [
-                  const Icon(Icons.menu_book_rounded, size: 44, color: AppColors.green),
+                  const AppIcon(size: 48),
                   const SizedBox(height: 10),
                   Text('Bookmarked', style: AppTheme.display.copyWith(fontSize: 30)),
                   const SizedBox(height: 4),

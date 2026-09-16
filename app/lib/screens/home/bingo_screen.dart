@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/bingo_provider.dart';
 import '../../theme.dart';
 import '../../widgets/bingo_cell_widget.dart';
+import '../../widgets/confirm_dialog.dart';
+import '../../widgets/error_state.dart';
 
 class BingoScreen extends ConsumerStatefulWidget {
   const BingoScreen({super.key});
@@ -24,7 +26,6 @@ class _BingoScreenState extends ConsumerState<BingoScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.paperSoft,
         title: const Text('Edit square'),
         content: TextField(controller: controller, autofocus: true, maxLength: 60),
         actions: [
@@ -42,6 +43,18 @@ class _BingoScreenState extends ConsumerState<BingoScreen> {
     }
   }
 
+  Future<void> _confirmReset() async {
+    final confirmed = await confirmDialog(
+      context,
+      title: 'Reset card?',
+      message: 'This clears progress on every unlocked square. This can\'t be undone.',
+      confirmLabel: 'Reset',
+    );
+    if (confirmed) {
+      await ref.read(bingoProvider.notifier).reset();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bingoProvider);
@@ -51,7 +64,12 @@ class _BingoScreenState extends ConsumerState<BingoScreen> {
       backgroundColor: AppColors.paper,
       body: SafeArea(
         child: card == null
-            ? const Center(child: CircularProgressIndicator(color: AppColors.green))
+            ? (state.error != null
+                ? ErrorState(
+                    message: state.error!,
+                    onRetry: () => ref.read(bingoProvider.notifier).load(),
+                  )
+                : const Center(child: CircularProgressIndicator(color: AppColors.green)))
             : SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
                 child: Column(
@@ -103,7 +121,7 @@ class _BingoScreenState extends ConsumerState<BingoScreen> {
                     ),
                     const SizedBox(height: 16),
                     GestureDetector(
-                      onTap: () => ref.read(bingoProvider.notifier).reset(),
+                      onTap: _confirmReset,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 12),

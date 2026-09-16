@@ -112,6 +112,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(user: AppUser.fromJson(json as Map<String, dynamic>));
   }
 
+  Future<bool> uploadAvatar({required List<int> bytes, required String filename, required String contentType}) async {
+    try {
+      final json = await _api.uploadFile('/users/me/avatar', field: 'file', bytes: bytes, filename: filename, contentType: contentType);
+      state = state.copyWith(user: AppUser.fromJson(json as Map<String, dynamic>));
+      return true;
+    } on ApiException catch (e) {
+      state = state.copyWith(error: e.message);
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);

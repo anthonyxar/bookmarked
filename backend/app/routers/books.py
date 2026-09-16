@@ -1,6 +1,8 @@
+import math
 import uuid
 
 import httpx
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from app.deps import get_current_user
 from app.models.book import Book
 from app.models.user import User
 from app.schemas.book import BookCreate, BookOut, BookSearchResult, BookUpdate
+from app.schemas.pagination import Page, PageParams
 
 router = APIRouter(prefix="/books", tags=["books"])
 
@@ -22,24 +25,30 @@ GENRE_OPTIONS = [
 ]
 
 
-def _compute_rating(cover: int | None, writing: int | None, plot: int | None, characters: int | None) -> int | None:
+def _compute_rating(cover: int | None, writing: int | None, plot: int | None, characters: int | None) -> float | None:
     values = [v for v in (cover, writing, plot, characters) if v is not None]
     if not values:
         return None
-    return round(sum(values) / len(values))
+    # Round to the nearest half star, half-up (not banker's rounding — round()
+    # would otherwise round an exact .5-star tie down to the even star, e.g. 2.25 -> 2 instead of 2.5).
+    avg = sum(values) / len(values)
+    return math.floor(avg * 2 + 0.5) / 2
 
 
-def _guess_genre(categories: list[str]) -> str | None:
-    joined = " ".join(categories).lower()
-    for option in GENRE_OPTIONS:
-        if option.lower() in joined:
-            return option
-    return None
+SORT_OPTIONS = {
+    "title": lambda: sa.func.lower(Book.title).asc(),
+    "author": lambda: sa.func.lower(Book.author).asc(),
+    "pages": lambda: Book.pages.desc().nulls_last(),
+    "times_read": lambda: Book.times_read.desc(),
+}
 
 
-@router.get("", response_model=list[BookOut])
+@router.get("", response_model=Page[BookOut])
 def list_books(
     filter: str = Query(default="all", pattern="^(all|toBuy|reading|read)$"),
+    q: str | None = Query(default=None, max_length=200),
+    sort: str = Query(default="title", pattern="^(title|author|pages|times_read)$"),
+    page: PageParams = Depends(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -51,7 +60,27 @@ def list_books(
     elif filter == "read":
         query = query.filter(Book.read.is_(True))
 
-    return query.order_by(Book.created_at.desc()).all()
+    if q:
+        needle = f"%{q.strip()}%"
+        query = query.filter(sa.or_(Book.title.ilike(needle), Book.author.ilike(needle), Book.series.ilike(needle)))
+
+    total = query.count()
+    # Tie-break everything by title so equal/null sort keys still land in a stable order.
+    items = (
+        query.order_by(SORT_OPTIONS[sort](), sa.func.lower(Book.title).asc())
+        .limit(page.limit)
+        .offset(page.offset)
+        .all()
+    )
+    return Page(items=items, total=total, limit=page.limit, offset=page.offset)
+
+
+def _guess_genre(categories: list[str]) -> str | None:
+    joined = " ".join(categories).lower()
+    for option in GENRE_OPTIONS:
+        if option.lower() in joined:
+            return option
+    return None
 
 
 def _search_google_books(q: str) -> list[BookSearchResult]:
@@ -156,7 +185,10 @@ def create_book(payload: BookCreate, current_user: User = Depends(get_current_us
     else:
         rating = None
 
-    book = Book(user_id=current_user.id, rating=rating, **data)
+    # A book added as already-read has clearly been read at least once.
+    times_read = 1 if data["read"] else 0
+
+    book = Book(user_id=current_user.id, rating=rating, times_read=times_read, **data)
     db.add(book)
     db.commit()
     db.refresh(book)
@@ -184,8 +216,15 @@ def update_book(
 ):
     book = _get_owned_book(book_id, current_user, db)
     updates = payload.model_dump(exclude_unset=True)
+    was_read = book.read
+
     for field, value in updates.items():
         setattr(book, field, value)
+
+    # Marking a book read (and not explicitly setting times_read in the same
+    # request) counts as finishing it at least once more.
+    if book.read and not was_read and "times_read" not in updates:
+        book.times_read += 1
 
     if book.read:
         book.rating = _compute_rating(book.rating_cover, book.rating_writing, book.rating_plot, book.rating_characters)

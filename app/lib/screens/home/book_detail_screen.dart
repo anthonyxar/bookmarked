@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 
 import '../../models/book.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/book_detail_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
+import '../../widgets/error_state.dart';
 import '../../widgets/star_rating.dart';
 import 'edit_review_screen.dart';
 
@@ -32,70 +34,59 @@ class BookDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
-  Book? _book;
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final json = await ref.read(apiClientProvider).get('/books/${widget.bookId}');
-      setState(() {
-        _book = Book.fromJson(json as Map<String, dynamic>);
-        _loading = false;
-      });
-    } on ApiException catch (e) {
-      setState(() {
-        _error = e.message;
-        _loading = false;
-      });
-    }
-  }
-
   Future<void> _toggle(String field, bool value) async {
     try {
-      final json = await ref.read(apiClientProvider).patch('/books/${widget.bookId}', body: {field: value});
-      setState(() => _book = Book.fromJson(json as Map<String, dynamic>));
+      await ref.read(apiClientProvider).patch('/books/${widget.bookId}', body: {field: value});
+      ref.invalidate(bookDetailProvider(widget.bookId));
       ref.invalidate(dashboardProvider);
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
-  Future<void> _openEditReview() async {
-    if (_book == null) return;
+  Future<void> _setTimesRead(int value) async {
+    if (value < 0) return;
+    try {
+      await ref.read(apiClientProvider).patch('/books/${widget.bookId}', body: {'times_read': value});
+      ref.invalidate(bookDetailProvider(widget.bookId));
+      ref.invalidate(dashboardProvider);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _openEditReview(Book book) async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => EditReviewScreen(book: _book!)),
+      MaterialPageRoute(builder: (_) => EditReviewScreen(book: book)),
     );
-    if (saved == true) _load();
+    if (saved == true) ref.invalidate(bookDetailProvider(widget.bookId));
   }
 
   @override
   Widget build(BuildContext context) {
+    final bookAsync = ref.watch(bookDetailProvider(widget.bookId));
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: AppBar(
         title: const Text('Book Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         actions: [
-          if (_book != null)
+          if (bookAsync.value != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: 'Edit review',
-              onPressed: _openEditReview,
+              onPressed: () => _openEditReview(bookAsync.value!),
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.green))
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.terra)))
-              : _buildBody(_book!),
+      body: bookAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.green)),
+        error: (e, _) => ErrorState(
+          message: e is ApiException ? e.message : '$e',
+          onRetry: () => ref.invalidate(bookDetailProvider(widget.bookId)),
+        ),
+        data: _buildBody,
+      ),
     );
   }
 
@@ -161,7 +152,7 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _InfoCard(book: book),
+          _InfoCard(book: book, onTimesReadChanged: _setTimesRead),
           if (book.read) ...[
             const SizedBox(height: 16),
             Center(
@@ -256,7 +247,7 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                   ),
                   const SizedBox(height: 14),
                   OutlinedButton(
-                    onPressed: _openEditReview,
+                    onPressed: () => _openEditReview(book),
                     style: OutlinedButton.styleFrom(foregroundColor: AppColors.green, side: const BorderSide(color: AppColors.green)),
                     child: const Text('Write a Review'),
                   ),
@@ -297,7 +288,8 @@ class _TogglePill extends StatelessWidget {
 
 class _InfoCard extends StatelessWidget {
   final Book book;
-  const _InfoCard({required this.book});
+  final ValueChanged<int> onTimesReadChanged;
+  const _InfoCard({required this.book, required this.onTimesReadChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +304,31 @@ class _InfoCard extends StatelessWidget {
           ),
         );
 
+    final timesReadCell = Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('TIMES READ', style: TextStyle(fontSize: 9, color: AppColors.inkSoft, letterSpacing: 0.5)),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text('${book.timesRead}', style: const TextStyle(fontSize: 12.5)),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: book.timesRead > 0 ? () => onTimesReadChanged(book.timesRead - 1) : null,
+                child: Icon(Icons.remove_circle_outline, size: 15, color: book.timesRead > 0 ? AppColors.inkSoft : AppColors.line),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => onTimesReadChanged(book.timesRead + 1),
+                child: const Icon(Icons.add_circle_outline, size: 15, color: AppColors.inkSoft),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
@@ -319,7 +336,7 @@ class _InfoCard extends StatelessWidget {
         children: [
           Row(children: [cell('GENRE', book.genre ?? '—'), cell('PUBLISHED', book.published ?? '—')]),
           const SizedBox(height: 10),
-          Row(children: [cell('PAGES', book.pages != null ? '${book.pages} pages' : '—'), cell('TIMES READ', '${book.timesRead}')]),
+          Row(children: [cell('PAGES', book.pages != null ? '${book.pages} pages' : '—'), timesReadCell]),
           const SizedBox(height: 10),
           Row(children: [
             cell('STARTED', book.startDate != null ? _dateFmt.format(book.startDate!) : '—'),

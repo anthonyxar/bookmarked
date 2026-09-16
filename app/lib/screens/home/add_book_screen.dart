@@ -16,7 +16,10 @@ import '../../widgets/switch_tile.dart';
 import '../../widgets/yes_no_toggle.dart';
 
 class AddBookScreen extends ConsumerStatefulWidget {
-  const AddBookScreen({super.key});
+  final String? initialTitle;
+  final String? initialAuthor;
+  final String? initialCoverUrl;
+  const AddBookScreen({super.key, this.initialTitle, this.initialAuthor, this.initialCoverUrl});
 
   @override
   ConsumerState<AddBookScreen> createState() => _AddBookScreenState();
@@ -44,6 +47,14 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
   String? _selectedCoverUrl;
   int? _selectedPages;
   String? _selectedPublished;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl.text = widget.initialTitle ?? '';
+    _authorCtrl.text = widget.initialAuthor ?? '';
+    _selectedCoverUrl = widget.initialCoverUrl;
+  }
 
   @override
   void dispose() {

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
+import '../../widgets/app_icon.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   final VoidCallback onSwitchToRegister;
@@ -46,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               Column(
                 children: [
-                  const Icon(Icons.menu_book_rounded, size: 44, color: AppColors.green),
+                  const AppIcon(size: 48),
                   const SizedBox(height: 10),
                   Text('Bookmarked', style: AppTheme.display.copyWith(fontSize: 30)),
                 ],

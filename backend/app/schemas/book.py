@@ -94,7 +94,7 @@ class BookOut(BaseModel):
     start_date: date | None
     end_date: date | None
 
-    rating: int | None
+    rating: float | None
     rating_cover: int | None
     rating_writing: int | None
     rating_plot: int | None

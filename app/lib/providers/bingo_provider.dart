@@ -12,11 +12,18 @@ class BingoState {
 
   const BingoState({this.card, this.loading = false, this.editMode = false, this.error});
 
-  BingoState copyWith({BingoCard? card, bool? loading, bool? editMode, String? error}) => BingoState(
+  BingoState copyWith({
+    BingoCard? card,
+    bool? loading,
+    bool? editMode,
+    String? error,
+    bool clearError = false,
+  }) =>
+      BingoState(
         card: card ?? this.card,
         loading: loading ?? this.loading,
         editMode: editMode ?? this.editMode,
-        error: error,
+        error: clearError ? null : (error ?? this.error),
       );
 }
 
@@ -25,10 +32,14 @@ class BingoNotifier extends StateNotifier<BingoState> {
   BingoNotifier(this._api) : super(const BingoState());
 
   Future<void> load() async {
-    state = state.copyWith(loading: true);
+    state = state.copyWith(loading: true, clearError: true);
     try {
       final json = await _api.get('/bingo');
-      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>), loading: false);
+      state = state.copyWith(
+        card: BingoCard.fromJson(json as Map<String, dynamic>),
+        loading: false,
+        clearError: true,
+      );
     } on ApiException catch (e) {
       state = state.copyWith(loading: false, error: e.message);
     }
@@ -39,7 +50,7 @@ class BingoNotifier extends StateNotifier<BingoState> {
   Future<void> toggleSquare(String squareId, bool currentlyCompleted) async {
     try {
       final json = await _api.patch('/bingo/squares/$squareId', body: {'completed': !currentlyCompleted});
-      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>));
+      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>), clearError: true);
     } on ApiException catch (e) {
       state = state.copyWith(error: e.message);
     }
@@ -48,7 +59,7 @@ class BingoNotifier extends StateNotifier<BingoState> {
   Future<void> renameSquare(String squareId, String label) async {
     try {
       final json = await _api.patch('/bingo/squares/$squareId', body: {'label': label});
-      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>));
+      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>), clearError: true);
     } on ApiException catch (e) {
       state = state.copyWith(error: e.message);
     }
@@ -57,7 +68,7 @@ class BingoNotifier extends StateNotifier<BingoState> {
   Future<void> reset() async {
     try {
       final json = await _api.post('/bingo/reset');
-      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>));
+      state = state.copyWith(card: BingoCard.fromJson(json as Map<String, dynamic>), clearError: true);
     } on ApiException catch (e) {
       state = state.copyWith(error: e.message);
     }

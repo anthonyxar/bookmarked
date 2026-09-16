@@ -5,6 +5,7 @@
 backend/__pycache__/
 backend/**/__pycache__/
 backend/.venv/
+backend/uploads/
 *.pyc
 
 # Flutter / Dart

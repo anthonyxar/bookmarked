@@ -57,7 +57,7 @@ class DashboardScreen extends ConsumerWidget {
                           for (final r in [5, 4, 3, 2, 1])
                             _BarRow(
                               label: '$r ★',
-                              count: dash.byRating.firstWhere((e) => e.rating == r, orElse: () => RatingCount(r, 0)).count,
+                              count: dash.byRating.where((e) => e.rating.round() == r).fold(0, (sum, e) => sum + e.count),
                               max: dash.byRating.map((e) => e.count).fold(1, (a, b) => a > b ? a : b),
                               color: AppColors.gold,
                               narrowLabel: true,

@@ -17,7 +17,7 @@ class Book {
   final DateTime? startDate;
   final DateTime? endDate;
 
-  final int? rating;
+  final double? rating;
   final int? ratingCover;
   final int? ratingWriting;
   final int? ratingPlot;
@@ -93,7 +93,7 @@ class Book {
         timesRead: json['times_read'] as int,
         startDate: _parseDate(json['start_date']),
         endDate: _parseDate(json['end_date']),
-        rating: json['rating'] as int?,
+        rating: (json['rating'] as num?)?.toDouble(),
         ratingCover: json['rating_cover'] as int?,
         ratingWriting: json['rating_writing'] as int?,
         ratingPlot: json['rating_plot'] as int?,

@@ -1,7 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
-const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
+const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
+
+/// Resolves a server-relative path (e.g. an avatar or cover upload URL) to an
+/// absolute URL, since the Flutter web app and the API are served from
+/// different origins. Already-absolute URLs (external search covers) pass through.
+String resolveMediaUrl(String path) => path.startsWith('http') ? path : '$apiBaseUrl$path';
 
 class ApiException implements Exception {
   final String message;
@@ -14,7 +20,7 @@ class ApiException implements Exception {
 class ApiClient {
   String? token;
 
-  Uri _uri(String path, [Map<String, String>? query]) => Uri.parse('$_baseUrl$path').replace(queryParameters: query);
+  Uri _uri(String path, [Map<String, String>? query]) => Uri.parse('$apiBaseUrl$path').replace(queryParameters: query);
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -57,5 +63,16 @@ class ApiClient {
   Future<void> delete(String path) async {
     final res = await http.delete(_uri(path), headers: _headers);
     _checkStatus(res);
+  }
+
+  Future<dynamic> uploadFile(String path, {required String field, required List<int> bytes, required String filename, String? contentType}) async {
+    final request = http.MultipartRequest('POST', _uri(path));
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename, contentType: contentType != null ? MediaType.parse(contentType) : null));
+
+    final streamed = await request.send();
+    final res = await http.Response.fromStream(streamed);
+    _checkStatus(res);
+    return _decode(res);
   }
 }

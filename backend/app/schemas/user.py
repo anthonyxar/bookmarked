@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     name: str
+    avatar_url: str | None
     reading_goal: int
     genres: list[str]
 

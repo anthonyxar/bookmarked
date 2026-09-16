@@ -62,6 +62,34 @@ class AppTheme {
           elevation: 0,
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.paperSoft,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titleTextStyle: GoogleFonts.spectral(color: AppColors.ink, fontSize: 18, fontWeight: FontWeight.w600),
+        contentTextStyle: GoogleFonts.manrope(color: AppColors.inkSoft, fontSize: 13),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: AppColors.paperSoft,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: AppColors.green,
+        headerForegroundColor: AppColors.paperSoft,
+        todayForegroundColor: const WidgetStatePropertyAll(AppColors.green),
+        todayBorder: const BorderSide(color: AppColors.green),
+        dayForegroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? AppColors.paperSoft : AppColors.ink,
+        ),
+        dayBackgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? AppColors.green : null,
+        ),
+        yearForegroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? AppColors.paperSoft : AppColors.ink,
+        ),
+        yearBackgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? AppColors.green : null,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 }

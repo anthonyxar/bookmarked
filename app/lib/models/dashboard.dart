@@ -6,10 +6,11 @@ class GenreCount {
 }
 
 class RatingCount {
-  final int rating;
+  final double rating;
   final int count;
   RatingCount(this.rating, this.count);
-  factory RatingCount.fromJson(Map<String, dynamic> json) => RatingCount(json['rating'] as int, json['count'] as int);
+  factory RatingCount.fromJson(Map<String, dynamic> json) =>
+      RatingCount((json['rating'] as num).toDouble(), json['count'] as int);
 }
 
 class MonthCount {

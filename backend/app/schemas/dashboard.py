@@ -7,7 +7,7 @@ class GenreCount(BaseModel):
 
 
 class RatingCount(BaseModel):
-    rating: int
+    rating: float
     count: int
 
 

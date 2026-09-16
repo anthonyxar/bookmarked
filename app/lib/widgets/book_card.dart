@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/book.dart';
 import '../theme.dart';
@@ -50,12 +51,33 @@ class BookCard extends StatelessWidget {
                   Text(book.title, style: AppTheme.serif.copyWith(fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(book.author, style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft)),
+                  if (book.pages != null || book.timesRead > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (book.pages != null) ...[
+                          const Icon(Icons.menu_book_outlined, size: 11, color: AppColors.lineStrong),
+                          const SizedBox(width: 3),
+                          Text('${book.pages} pages', style: const TextStyle(fontSize: 10, color: AppColors.inkSoft)),
+                        ],
+                        if (book.pages != null && book.timesRead > 0) const SizedBox(width: 10),
+                        if (book.timesRead > 0) ...[
+                          const Icon(Icons.replay_rounded, size: 11, color: AppColors.lineStrong),
+                          const SizedBox(width: 3),
+                          Text('Read ${book.timesRead}×', style: const TextStyle(fontSize: 10, color: AppColors.inkSoft)),
+                        ],
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       _FlagPill(icon: Icons.shopping_bag_outlined, label: 'Owned', active: book.purchased, activeColor: AppColors.green),
-                      const SizedBox(width: 8),
                       _FlagPill(icon: Icons.menu_book_outlined, label: 'Read', active: book.read, activeColor: AppColors.terra),
+                      if (!book.purchased) _AmazonLink(book: book),
                     ],
                   ),
                   if (book.read) ...[
@@ -107,6 +129,29 @@ class _CoverPlaceholder extends StatelessWidget {
         initials,
         textAlign: TextAlign.center,
         style: AppTheme.serif.copyWith(fontSize: 10, color: AppColors.paperSoft),
+      ),
+    );
+  }
+}
+
+class _AmazonLink extends StatelessWidget {
+  final Book book;
+  const _AmazonLink({required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => launchUrl(
+        Uri.https('www.amazon.com', '/s', {'k': '${book.title} ${book.author}'}),
+        mode: LaunchMode.externalApplication,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.open_in_new_rounded, size: 12, color: AppColors.gold),
+          SizedBox(width: 3),
+          Text('Find on Amazon', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.gold)),
+        ],
       ),
     );
   }

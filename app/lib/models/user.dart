@@ -2,6 +2,7 @@ class AppUser {
   final String id;
   final String email;
   final String name;
+  final String? avatarUrl;
   final int readingGoal;
   final List<String> genres;
 
@@ -9,6 +10,7 @@ class AppUser {
     required this.id,
     required this.email,
     required this.name,
+    this.avatarUrl,
     required this.readingGoal,
     required this.genres,
   });
@@ -23,6 +25,7 @@ class AppUser {
         id: json['id'] as String,
         email: json['email'] as String,
         name: json['name'] as String,
+        avatarUrl: json['avatar_url'] as String?,
         readingGoal: json['reading_goal'] as int,
         genres: (json['genres'] as List).map((g) => g as String).toList(),
       );
