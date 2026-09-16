@@ -44,7 +44,7 @@ services:
       - ./app:/app
     command: >
       sh -c "flutter pub get &&
-             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 5000
+             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 5000 --release
              --dart-define=API_BASE_URL=$$API_BASE_URL"
 
 volumes:
