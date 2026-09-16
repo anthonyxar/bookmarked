@@ -17,6 +17,8 @@ class MonthCount(BaseModel):
 
 
 class DashboardOut(BaseModel):
+    year: int
+    available_years: list[int]
     total_read: int
     avg_rating: float
     pages_read: int

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/club.dart';
@@ -8,6 +9,7 @@ import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
+import '../../widgets/club_image.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/date_field.dart';
 import '../../widgets/error_state.dart';
@@ -22,6 +24,14 @@ import 'club_reviews_screen.dart';
 
 final _dateFmt = DateFormat('MMM d, yyyy');
 
+const _clubImageContentTypes = {
+  'jpg': 'image/jpeg',
+  'jpeg': 'image/jpeg',
+  'png': 'image/png',
+  'webp': 'image/webp',
+  'gif': 'image/gif',
+};
+
 class ClubDetailScreen extends ConsumerStatefulWidget {
   final String clubId;
   const ClubDetailScreen({super.key, required this.clubId});
@@ -31,7 +41,34 @@ class ClubDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
+  bool _uploadingImage = false;
+
   Future<void> _reload() => ref.refresh(clubDetailProvider(widget.clubId).future);
+
+  Future<void> _pickClubImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, maxHeight: 1200);
+    if (picked == null) return;
+
+    final extension = picked.name.split('.').last.toLowerCase();
+    final contentType = _clubImageContentTypes[extension] ?? 'image/jpeg';
+
+    setState(() => _uploadingImage = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      await ref.read(apiClientProvider).uploadFile(
+            '/clubs/${widget.clubId}/image',
+            field: 'file',
+            bytes: bytes,
+            filename: picked.name,
+            contentType: contentType,
+          );
+      _reload();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
 
   Future<void> _updateProgress({int? chapter, bool? finished}) async {
     try {
@@ -225,6 +262,34 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: GestureDetector(
+                onTap: club.canManage && !_uploadingImage ? _pickClubImage : null,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _uploadingImage
+                        ? const SizedBox(
+                            width: 84,
+                            height: 84,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+                          )
+                        : ClubImage(imageUrl: club.imageUrl, name: club.name, size: 84),
+                    if (club.canManage)
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+                          child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             if (club.description != null && club.description!.isNotEmpty) ...[
               Text(club.description!, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft, height: 1.5)),
               const SizedBox(height: 16),

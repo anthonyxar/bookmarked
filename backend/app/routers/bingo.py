@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -21,7 +21,7 @@ DEFAULT_LABELS = [
 ]
 
 
-def _get_or_create_card(user_id: uuid.UUID, db: Session) -> BingoCard:
+def _get_or_create_current_card(user_id: uuid.UUID, db: Session) -> BingoCard:
     year = date.today().year
     card = db.query(BingoCard).filter(BingoCard.user_id == user_id, BingoCard.year == year).first()
     if card is not None:
@@ -40,9 +40,36 @@ def _get_or_create_card(user_id: uuid.UUID, db: Session) -> BingoCard:
     return card
 
 
+def _available_years(user_id: uuid.UUID, db: Session) -> list[int]:
+    rows = db.query(BingoCard.year).filter(BingoCard.user_id == user_id).distinct().all()
+    years = {y for (y,) in rows}
+    years.add(date.today().year)
+    return sorted(years, reverse=True)
+
+
+def _serialize(card: BingoCard, user_id: uuid.UUID, db: Session) -> BingoCardOut:
+    out = BingoCardOut.model_validate(card)
+    out.available_years = _available_years(user_id, db)
+    return out
+
+
 @router.get("", response_model=BingoCardOut)
-def get_bingo_card(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return _get_or_create_card(current_user.id, db)
+def get_bingo_card(
+    year: int | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_year = date.today().year
+    selected_year = year or current_year
+
+    if selected_year == current_year:
+        card = _get_or_create_current_card(current_user.id, db)
+    else:
+        card = db.query(BingoCard).filter(BingoCard.user_id == current_user.id, BingoCard.year == selected_year).first()
+        if card is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"No bingo card for {selected_year}")
+
+    return _serialize(card, current_user.id, db)
 
 
 @router.patch("/squares/{square_id}", response_model=BingoCardOut)
@@ -57,22 +84,24 @@ def update_square(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Bingo square not found")
     if square.locked:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This square can't be edited")
+    if square.card.year != date.today().year:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only this year's card can be edited")
 
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(square, field, value)
 
     db.commit()
-    return _get_or_create_card(current_user.id, db)
+    return _serialize(_get_or_create_current_card(current_user.id, db), current_user.id, db)
 
 
 @router.post("/reset", response_model=BingoCardOut)
 def reset_card(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    card = _get_or_create_card(current_user.id, db)
+    card = _get_or_create_current_card(current_user.id, db)
     for square in card.squares:
         if not square.locked:
             square.completed = False
 
     db.commit()
     db.refresh(card)
-    return card
+    return _serialize(card, current_user.id, db)

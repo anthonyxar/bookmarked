@@ -120,6 +120,17 @@ class BooksNotifier extends StateNotifier<BooksState> {
   }
 
   Future<void> toggleFlag(String id, String field, bool value) => update(id, {field: value});
+
+  Future<bool> delete(String id) async {
+    try {
+      await _api.delete('/books/$id');
+      state = state.copyWith(books: state.books.where((b) => b.id != id).toList(), total: state.total - 1);
+      return true;
+    } on ApiException catch (e) {
+      state = state.copyWith(error: e.message);
+      return false;
+    }
+  }
 }
 
 final booksProvider = StateNotifierProvider<BooksNotifier, BooksState>((ref) {

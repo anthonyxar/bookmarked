@@ -21,6 +21,8 @@ class MonthCount {
 }
 
 class Dashboard {
+  final int year;
+  final List<int> availableYears;
   final int totalRead;
   final double avgRating;
   final int pagesRead;
@@ -29,6 +31,8 @@ class Dashboard {
   final List<MonthCount> byMonth;
 
   Dashboard({
+    required this.year,
+    required this.availableYears,
     required this.totalRead,
     required this.avgRating,
     required this.pagesRead,
@@ -38,6 +42,8 @@ class Dashboard {
   });
 
   factory Dashboard.fromJson(Map<String, dynamic> json) => Dashboard(
+        year: json['year'] as int,
+        availableYears: (json['available_years'] as List).map((y) => y as int).toList(),
         totalRead: json['total_read'] as int,
         avgRating: (json['avg_rating'] as num).toDouble(),
         pagesRead: json['pages_read'] as int,

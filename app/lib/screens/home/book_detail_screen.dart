@@ -5,11 +5,14 @@ import 'package:intl/intl.dart';
 import '../../models/book.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_detail_provider.dart';
+import '../../providers/books_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
+import '../../widgets/confirm_dialog.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/star_rating.dart';
+import 'edit_book_screen.dart';
 import 'edit_review_screen.dart';
 
 final _dateFmt = DateFormat('MMM d, yyyy');
@@ -62,6 +65,33 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
     if (saved == true) ref.invalidate(bookDetailProvider(widget.bookId));
   }
 
+  Future<void> _openEditBook(Book book) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => EditBookScreen(book: book)),
+    );
+    if (saved == true) ref.invalidate(bookDetailProvider(widget.bookId));
+  }
+
+  Future<void> _confirmDelete(Book book) async {
+    final confirmed = await confirmDialog(
+      context,
+      title: 'Delete book?',
+      message: 'This permanently removes "${book.title}" from your shelf, including its review. This can\'t be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
+    final ok = await ref.read(booksProvider.notifier).delete(widget.bookId);
+    if (!mounted) return;
+    if (ok) {
+      ref.invalidate(dashboardProvider);
+      Navigator.of(context).pop();
+    } else {
+      final error = ref.read(booksProvider).error ?? 'Could not delete this book';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookAsync = ref.watch(bookDetailProvider(widget.bookId));
@@ -72,10 +102,18 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
         title: const Text('Book Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         actions: [
           if (bookAsync.value != null)
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              tooltip: 'Edit review',
-              onPressed: () => _openEditReview(bookAsync.value!),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                if (value == 'edit_book') _openEditBook(bookAsync.value!);
+                if (value == 'edit_review') _openEditReview(bookAsync.value!);
+                if (value == 'delete') _confirmDelete(bookAsync.value!);
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'edit_book', child: Text('Edit Book')),
+                const PopupMenuItem(value: 'edit_review', child: Text('Edit Review')),
+                const PopupMenuItem(value: 'delete', child: Text('Delete Book', style: TextStyle(color: AppColors.terra))),
+              ],
             ),
         ],
       ),

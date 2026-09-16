@@ -9,39 +9,57 @@ class BingoState {
   final bool loading;
   final bool editMode;
   final String? error;
+  final int selectedYear;
+  final List<int> availableYears;
 
-  const BingoState({this.card, this.loading = false, this.editMode = false, this.error});
+  const BingoState({
+    this.card,
+    this.loading = false,
+    this.editMode = false,
+    this.error,
+    required this.selectedYear,
+    this.availableYears = const [],
+  });
 
   BingoState copyWith({
     BingoCard? card,
     bool? loading,
     bool? editMode,
     String? error,
+    int? selectedYear,
+    List<int>? availableYears,
     bool clearError = false,
+    bool clearCard = false,
   }) =>
       BingoState(
-        card: card ?? this.card,
+        card: clearCard ? null : (card ?? this.card),
         loading: loading ?? this.loading,
         editMode: editMode ?? this.editMode,
         error: clearError ? null : (error ?? this.error),
+        selectedYear: selectedYear ?? this.selectedYear,
+        availableYears: availableYears ?? this.availableYears,
       );
 }
 
 class BingoNotifier extends StateNotifier<BingoState> {
   final ApiClient _api;
-  BingoNotifier(this._api) : super(const BingoState());
+  BingoNotifier(this._api) : super(BingoState(selectedYear: DateTime.now().year));
 
-  Future<void> load() async {
-    state = state.copyWith(loading: true, clearError: true);
+  Future<void> load({int? year}) async {
+    final selectedYear = year ?? state.selectedYear;
+    state = state.copyWith(loading: true, clearError: true, clearCard: true, selectedYear: selectedYear, editMode: false);
     try {
-      final json = await _api.get('/bingo');
+      final json = await _api.get('/bingo', query: {'year': '$selectedYear'});
+      final card = BingoCard.fromJson(json as Map<String, dynamic>);
       state = state.copyWith(
-        card: BingoCard.fromJson(json as Map<String, dynamic>),
+        card: card,
         loading: false,
         clearError: true,
+        availableYears: card.availableYears,
       );
     } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: e.message);
+      final message = e.statusCode == 404 ? "No bingo card for $selectedYear." : e.message;
+      state = state.copyWith(loading: false, error: message);
     }
   }
 

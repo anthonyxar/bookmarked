@@ -1,6 +1,7 @@
 class ClubReviewEntry {
   final String userId;
   final String name;
+  final String? avatarUrl;
   final bool finished;
   final bool locked;
   final String? spoilerWarning;
@@ -25,6 +26,7 @@ class ClubReviewEntry {
   ClubReviewEntry({
     required this.userId,
     required this.name,
+    this.avatarUrl,
     required this.finished,
     required this.locked,
     this.spoilerWarning,
@@ -46,9 +48,16 @@ class ClubReviewEntry {
     this.quotes = const [],
   });
 
+  String get initials {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
   factory ClubReviewEntry.fromJson(Map<String, dynamic> json) => ClubReviewEntry(
         userId: json['user_id'] as String,
         name: json['name'] as String,
+        avatarUrl: json['avatar_url'] as String?,
         finished: json['finished'] as bool,
         locked: json['locked'] as bool,
         spoilerWarning: json['spoiler_warning'] as String?,

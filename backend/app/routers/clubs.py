@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -51,6 +52,10 @@ from app.schemas.pagination import Page, PageParams
 router = APIRouter(prefix="/clubs", tags=["clubs"])
 
 FREE_SPACE_POSITION = 12
+
+CLUB_IMAGE_DIR = Path("uploads/club_images")
+ALLOWED_CLUB_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+MAX_CLUB_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 def _get_club_or_404(club_id: uuid.UUID, db: Session) -> BookClub:
@@ -111,6 +116,7 @@ def _build_club_out(club: BookClub, viewer_role: ClubRole, db: Session) -> ClubO
         id=club.id,
         name=club.name,
         description=club.description,
+        image_url=club.image_url,
         owner_id=club.owner_id,
         my_role=viewer_role,
         created_at=club.created_at,
@@ -191,6 +197,39 @@ def update_club(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(club, field, value)
 
+    db.commit()
+    db.refresh(club)
+    return _build_club_out(club, membership.role, db)
+
+
+@router.post("/{club_id}/image", response_model=ClubOut)
+async def upload_club_image(
+    club_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    club = _get_club_or_404(club_id, db)
+    membership = _require_membership(club_id, current_user, db, roles={ClubRole.owner, ClubRole.admin})
+
+    extension = ALLOWED_CLUB_IMAGE_TYPES.get(file.content_type)
+    if extension is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Please upload a JPEG, PNG, WEBP, or GIF image")
+
+    contents = await file.read()
+    if len(contents) > MAX_CLUB_IMAGE_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Image must be smaller than 5MB")
+
+    if club.image_url:
+        old_path = Path(club.image_url.lstrip("/"))
+        if old_path.exists():
+            old_path.unlink(missing_ok=True)
+
+    CLUB_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{club.id}-{uuid.uuid4().hex[:8]}{extension}"
+    (CLUB_IMAGE_DIR / filename).write_bytes(contents)
+
+    club.image_url = f"/uploads/club_images/{filename}"
     db.commit()
     db.refresh(club)
     return _build_club_out(club, membership.role, db)
@@ -622,6 +661,7 @@ def list_reviews(
                 ClubReviewEntryOut(
                     user_id=membership.user_id,
                     name=membership.user.name,
+                    avatar_url=membership.user.avatar_url,
                     finished=False,
                     locked=False,
                     book_id=None,
@@ -636,6 +676,7 @@ def list_reviews(
                 ClubReviewEntryOut(
                     user_id=membership.user_id,
                     name=membership.user.name,
+                    avatar_url=membership.user.avatar_url,
                     finished=review_book.read,
                     locked=True,
                     spoiler_warning="You haven't finished this book yet. Viewing may spoil it for you.",
@@ -647,6 +688,7 @@ def list_reviews(
             ClubReviewEntryOut(
                 user_id=membership.user_id,
                 name=membership.user.name,
+                avatar_url=membership.user.avatar_url,
                 finished=review_book.read,
                 locked=False,
                 book_id=review_book.id if is_own else None,

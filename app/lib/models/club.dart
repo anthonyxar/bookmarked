@@ -86,6 +86,7 @@ class Club {
   final String id;
   final String name;
   final String? description;
+  final String? imageUrl;
   final String ownerId;
   final String myRole;
   final DateTime createdAt;
@@ -96,6 +97,7 @@ class Club {
     required this.id,
     required this.name,
     this.description,
+    this.imageUrl,
     required this.ownerId,
     required this.myRole,
     required this.createdAt,
@@ -116,6 +118,7 @@ class Club {
         id: json['id'] as String,
         name: json['name'] as String,
         description: json['description'] as String?,
+        imageUrl: json['image_url'] as String?,
         ownerId: json['owner_id'] as String,
         myRole: json['my_role'] as String,
         createdAt: DateTime.parse(json['created_at'] as String),

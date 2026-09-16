@@ -19,6 +19,7 @@ class BingoCardOut(BaseModel):
     id: uuid.UUID
     year: int
     squares: list[BingoSquareOut]
+    available_years: list[int] = []
 
 
 class BingoSquareUpdate(BaseModel):

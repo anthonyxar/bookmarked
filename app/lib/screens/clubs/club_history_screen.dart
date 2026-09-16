@@ -6,6 +6,7 @@ import '../../models/club.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
+import '../../widgets/club_book_cover.dart';
 import 'club_notes_screen.dart';
 import 'club_reviews_screen.dart';
 
@@ -47,9 +48,10 @@ class _ClubHistoryScreenState extends ConsumerState<ClubHistoryScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final json = await ref.read(apiClientProvider).get('/clubs/${widget.clubId}/books');
+      final json = await ref.read(apiClientProvider).get('/clubs/${widget.clubId}/books', query: {'limit': '200'});
+      final items = (json as Map<String, dynamic>)['items'] as List;
       setState(() {
-        _books = (json as List).map((b) => ClubBook.fromJson(b as Map<String, dynamic>)).toList();
+        _books = items.map((b) => ClubBook.fromJson(b as Map<String, dynamic>)).toList();
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -58,19 +60,6 @@ class _ClubHistoryScreenState extends ConsumerState<ClubHistoryScreen> {
         _loading = false;
       });
     }
-  }
-
-  Widget _placeholder(ClubBook book, {double width = 44, double height = 64}) {
-    final color = Color(int.parse(book.coverColor.replaceFirst('#', '0xFF')));
-    final words = book.title.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    final initials = words.take(2).map((w) => w[0].toUpperCase()).join();
-    return Container(
-      width: width,
-      height: height,
-      color: color,
-      alignment: Alignment.center,
-      child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-    );
   }
 
   @override
@@ -105,12 +94,7 @@ class _ClubHistoryScreenState extends ConsumerState<ClubHistoryScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: book.coverUrl != null
-                                        ? Image.network(book.coverUrl!, width: 44, height: 64, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder(book))
-                                        : _placeholder(book),
-                                  ),
+                                  ClubBookCover(title: book.title, coverColor: book.coverColor, coverUrl: book.coverUrl),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(

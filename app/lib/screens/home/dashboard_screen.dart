@@ -15,6 +15,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(dashboardProvider);
     final user = ref.watch(authProvider).user;
+    final selectedYear = ref.watch(dashboardYearProvider);
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -28,9 +29,24 @@ class DashboardScreen extends ConsumerWidget {
             data: (dash) => ListView(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 90),
               children: [
-                Text('Your Reading Dashboard', style: AppTheme.serif.copyWith(fontSize: 20)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text('Your Reading Dashboard', style: AppTheme.serif.copyWith(fontSize: 20)),
+                    ),
+                    _YearDropdown(
+                      years: dash.availableYears,
+                      selected: selectedYear,
+                      onChanged: (y) => ref.read(dashboardYearProvider.notifier).state = y,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 2),
-                Text("Hi ${user?.name ?? 'there'} — here's your reading year so far", style: const TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+                Text(
+                  "Hi ${user?.name ?? 'there'} — here's your $selectedYear in books",
+                  style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
@@ -41,6 +57,10 @@ class DashboardScreen extends ConsumerWidget {
                     Expanded(child: _StatTile(value: '${dash.pagesRead}', label: 'Pages Read', color: AppColors.terra)),
                   ],
                 ),
+                if (user != null && user.readingGoal > 0) ...[
+                  const SizedBox(height: 14),
+                  _ReadingGoalCard(totalRead: dash.totalRead, goal: user.readingGoal, year: dash.year),
+                ],
                 const SizedBox(height: 14),
                 _Card(
                   title: 'By Genre',
@@ -75,6 +95,36 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
+class _YearDropdown extends StatelessWidget {
+  final List<int> years;
+  final int selected;
+  final ValueChanged<int> onChanged;
+  const _YearDropdown({required this.years, required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final options = years.contains(selected) ? years : [selected, ...years];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.paperSoft,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: selected,
+          isDense: true,
+          items: [for (final y in options) DropdownMenuItem(value: y, child: Text('$y'))],
+          onChanged: (y) {
+            if (y != null) onChanged(y);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _StatTile extends StatelessWidget {
   final String value;
   final String label;
@@ -91,6 +141,51 @@ class _StatTile extends StatelessWidget {
           Text(value, style: AppTheme.serif.copyWith(fontSize: 22, color: color)),
           const SizedBox(height: 3),
           Text(label.toUpperCase(), style: const TextStyle(fontSize: 9, color: AppColors.inkSoft, letterSpacing: 0.4)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadingGoalCard extends StatelessWidget {
+  final int totalRead;
+  final int goal;
+  final int year;
+  const _ReadingGoalCard({required this.totalRead, required this.goal, required this.year});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = goal == 0 ? 0.0 : (totalRead / goal).clamp(0, 1).toDouble();
+    final isCurrentYear = year == DateTime.now().year;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('READING GOAL', style: labelCapsStyle),
+              Text('${(pct * 100).round()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.gold)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 8,
+              backgroundColor: AppColors.creamDark,
+              valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isCurrentYear ? '$totalRead of $goal books this year' : '$totalRead of $goal books in $year',
+            style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+          ),
         ],
       ),
     );
@@ -175,7 +270,7 @@ class _MonthChart extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 70,
+          height: 84,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -183,15 +278,28 @@ class _MonthChart extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: FractionallySizedBox(
-                      heightFactor: m.count == 0 ? 0.02 : (m.count / maxCount).clamp(0.08, 1.0),
-                      alignment: Alignment.bottomCenter,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: m.count == 0 ? AppColors.creamDark : AppColors.green,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (m.count > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Text('${m.count}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
+                          ),
+                        SizedBox(
+                          height: 56,
+                          child: FractionallySizedBox(
+                            heightFactor: m.count == 0 ? 0.02 : (m.count / maxCount).clamp(0.08, 1.0),
+                            alignment: Alignment.bottomCenter,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: m.count == 0 ? AppColors.creamDark : AppColors.green,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

@@ -40,6 +40,7 @@ SORT_OPTIONS = {
     "author": lambda: sa.func.lower(Book.author).asc(),
     "pages": lambda: Book.pages.desc().nulls_last(),
     "times_read": lambda: Book.times_read.desc(),
+    "end_date": lambda: Book.end_date.desc().nulls_last(),
 }
 
 
@@ -47,7 +48,7 @@ SORT_OPTIONS = {
 def list_books(
     filter: str = Query(default="all", pattern="^(all|toBuy|reading|read)$"),
     q: str | None = Query(default=None, max_length=200),
-    sort: str = Query(default="title", pattern="^(title|author|pages|times_read)$"),
+    sort: str = Query(default="title", pattern="^(title|author|pages|times_read|end_date)$"),
     page: PageParams = Depends(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

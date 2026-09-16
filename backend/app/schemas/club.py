@@ -46,6 +46,7 @@ class ClubOut(BaseModel):
     id: uuid.UUID
     name: str
     description: str | None
+    image_url: str | None
     owner_id: uuid.UUID
     my_role: ClubRole
     created_at: datetime
@@ -115,6 +116,7 @@ class ClubNoteOut(BaseModel):
 class ClubReviewEntryOut(BaseModel):
     user_id: uuid.UUID
     name: str
+    avatar_url: str | None = None
     finished: bool
     locked: bool
     spoiler_warning: str | None = None

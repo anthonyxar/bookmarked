@@ -25,6 +25,7 @@ const _sortOptions = [
   ('author', 'Author'),
   ('pages', 'Pages'),
   ('times_read', 'Times Read'),
+  ('end_date', 'Date Read'),
 ];
 
 class WishlistScreen extends ConsumerStatefulWidget {

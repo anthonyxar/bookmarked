@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../models/club.dart';
 import '../../providers/clubs_provider.dart';
 import '../../theme.dart';
+import '../../widgets/club_book_cover.dart';
+import '../../widgets/club_image.dart';
 import '../../widgets/error_state.dart';
 import 'club_detail_screen.dart';
 import 'create_club_screen.dart';
+
+final _dateFmt = DateFormat('MMM d, yyyy');
+
+String? _bookDateLabel(ClubBook book) {
+  if (book.startDate != null && book.endDate != null) {
+    return '${_dateFmt.format(book.startDate!)} – ${_dateFmt.format(book.endDate!)}';
+  }
+  if (book.startDate != null) return 'Started ${_dateFmt.format(book.startDate!)}';
+  if (book.endDate != null) return 'Finished ${_dateFmt.format(book.endDate!)}';
+  return null;
+}
 
 class ClubsListScreen extends ConsumerStatefulWidget {
   const ClubsListScreen({super.key});
@@ -174,18 +189,46 @@ class _ClubsListScreenState extends ConsumerState<ClubsListScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                ClubImage(imageUrl: club.imageUrl, name: club.name, size: 48, borderRadius: 10),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(club.name, style: AppTheme.serif.copyWith(fontSize: 16)),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        book != null ? 'Reading: ${book.title}' : 'No book picked yet',
-                                        style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
-                                      ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 8),
+                                      if (book == null)
+                                        const Text('No book picked yet', style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft))
+                                      else
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            ClubBookCover(title: book.title, coverColor: book.coverColor, coverUrl: book.coverUrl, width: 32, height: 46),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Reading: ${book.title}',
+                                                    style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft, fontWeight: FontWeight.w600),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(book.author, style: const TextStyle(fontSize: 10.5, color: AppColors.inkSoft), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                  if (_bookDateLabel(book) != null) ...[
+                                                    const SizedBox(height: 2),
+                                                    Text(_bookDateLabel(book)!, style: const TextStyle(fontSize: 10, color: AppColors.lineStrong)),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      const SizedBox(height: 8),
                                       Text('${club.activeMembers.length} members', style: const TextStyle(fontSize: 11, color: AppColors.lineStrong)),
                                     ],
                                   ),

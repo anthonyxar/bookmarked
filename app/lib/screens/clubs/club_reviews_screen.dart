@@ -8,6 +8,7 @@ import '../../providers/club_lists_provider.dart';
 import '../../theme.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/star_rating.dart';
+import '../../widgets/user_avatar.dart';
 import '../home/add_book_screen.dart';
 import '../home/book_detail_screen.dart';
 
@@ -167,7 +168,21 @@ class _ReviewCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(isMine ? '${review.name} (you)' : review.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              Expanded(
+                child: Row(
+                  children: [
+                    UserAvatar(avatarUrl: review.avatarUrl, initials: review.initials, size: 26),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isMine ? '${review.name} (you)' : review.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (review.rating != null) StarRating(rating: review.rating!, size: 14),
             ],
           ),
