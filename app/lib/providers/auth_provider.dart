@@ -1,9 +1,22 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
 import '../services/api_client.dart';
 
+final firebaseAuthProvider = Provider<fb_auth.FirebaseAuth>((ref) => fb_auth.FirebaseAuth.instance);
+final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+
+// Legacy REST client for domains not yet migrated off the FastAPI backend
+// (issues #9-#15). It's unauthenticated now that there's no JWT to attach —
+// those backend calls will 401 until each domain moves to Firestore. Remove
+// this once every provider that imports it has been migrated (issue #20).
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
 class AuthState {
@@ -27,34 +40,49 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  final ApiClient _api;
-  static const _tokenKey = 'bookmarked_token';
+  final fb_auth.FirebaseAuth _auth;
+  final FirebaseFirestore _db;
 
-  AuthNotifier(this._api) : super(const AuthState()) {
-    _restore();
+  // Lazy: constructing GoogleSignIn eagerly crashes on web without a
+  // configured client ID, and there's no reason to pay for it on native
+  // platforms until sign-in is actually attempted.
+  GoogleSignIn? _googleSignInInstance;
+  GoogleSignIn get _googleSignIn => _googleSignInInstance ??= GoogleSignIn();
+
+  StreamSubscription<fb_auth.User?>? _authSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSub;
+
+  AuthNotifier(this._auth, this._db) : super(const AuthState()) {
+    _authSub = _auth.authStateChanges().listen(_onAuthChanged);
   }
 
-  Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_tokenKey);
-    if (token == null) {
-      state = state.copyWith(initializing: false);
+  void _onAuthChanged(fb_auth.User? user) {
+    _profileSub?.cancel();
+    if (user == null) {
+      state = const AuthState(initializing: false);
       return;
     }
-    _api.token = token;
-    try {
-      final json = await _api.get('/auth/me');
-      state = state.copyWith(user: AppUser.fromJson(json as Map<String, dynamic>), initializing: false);
-    } catch (_) {
-      await prefs.remove(_tokenKey);
-      _api.token = null;
-      state = state.copyWith(initializing: false);
-    }
+    _profileSub = _db.collection('users').doc(user.uid).snapshots().listen((doc) {
+      if (!doc.exists) return;
+      state = state.copyWith(user: AppUser.fromFirestore(doc), initializing: false);
+    });
   }
 
-  Future<void> _persistToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+  String _friendlyError(fb_auth.FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'An account with this email already exists';
+      case 'invalid-credential':
+      case 'wrong-password':
+      case 'user-not-found':
+        return 'Incorrect email or password';
+      case 'weak-password':
+        return 'Password must be at least 6 characters';
+      case 'invalid-email':
+        return 'That email address looks invalid';
+      default:
+        return e.message ?? 'Something went wrong';
+    }
   }
 
   Future<bool> register({
@@ -66,17 +94,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final json = await _api.post('/auth/register', body: {
-        'email': email,
-        'password': password,
+      final credential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      final uid = credential.user!.uid;
+      await credential.user!.updateDisplayName(name);
+      await _db.collection('users').doc(uid).set({
         'name': name,
-        'reading_goal': readingGoal,
+        'avatarUrl': null,
+        'readingGoal': readingGoal,
         'genres': genres,
+        'createdAt': FieldValue.serverTimestamp(),
       });
-      await _applyToken(json as Map<String, dynamic>);
+      state = state.copyWith(loading: false);
       return true;
-    } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: e.message);
+    } on fb_auth.FirebaseAuthException catch (e) {
+      state = state.copyWith(loading: false, error: _friendlyError(e));
       return false;
     }
   }
@@ -84,53 +115,94 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login({required String email, required String password}) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final json = await _api.post('/auth/login', body: {'email': email, 'password': password});
-      await _applyToken(json as Map<String, dynamic>);
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      state = state.copyWith(loading: false);
       return true;
-    } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: e.message);
+    } on fb_auth.FirebaseAuthException catch (e) {
+      state = state.copyWith(loading: false, error: _friendlyError(e));
       return false;
     }
   }
 
-  Future<void> _applyToken(Map<String, dynamic> json) async {
-    final token = json['access_token'] as String;
-    _api.token = token;
-    await _persistToken(token);
-    state = state.copyWith(
-      user: AppUser.fromJson(json['user'] as Map<String, dynamic>),
-      loading: false,
-    );
+  /// Signs in (or registers, on first use) with Google. Returns false without
+  /// setting an error if the user simply cancelled the picker.
+  Future<bool> signInWithGoogle() async {
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        state = state.copyWith(loading: false);
+        return false;
+      }
+      final googleAuth = await googleUser.authentication;
+      final credential = fb_auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final userCredential = await _auth.signInWithCredential(credential);
+      final uid = userCredential.user!.uid;
+      final doc = _db.collection('users').doc(uid);
+      if (!(await doc.get()).exists) {
+        await doc.set({
+          'name': userCredential.user!.displayName ?? 'Reader',
+          'avatarUrl': userCredential.user!.photoURL,
+          'readingGoal': 40,
+          'genres': <String>[],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      state = state.copyWith(loading: false);
+      return true;
+    } on fb_auth.FirebaseAuthException catch (e) {
+      state = state.copyWith(loading: false, error: _friendlyError(e));
+      return false;
+    }
   }
 
   Future<void> updateProfile({String? name, int? readingGoal, List<String>? genres}) async {
-    final body = <String, dynamic>{};
-    if (name != null) body['name'] = name;
-    if (readingGoal != null) body['reading_goal'] = readingGoal;
-    if (genres != null) body['genres'] = genres;
-    final json = await _api.patch('/users/me', body: body);
-    state = state.copyWith(user: AppUser.fromJson(json as Map<String, dynamic>));
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (readingGoal != null) updates['readingGoal'] = readingGoal;
+    if (genres != null) updates['genres'] = genres;
+    if (updates.isEmpty) return;
+    await _db.collection('users').doc(uid).update(updates);
   }
 
-  Future<bool> uploadAvatar({required List<int> bytes, required String filename, required String contentType}) async {
+  Future<bool> uploadAvatar({required Uint8List bytes, required String filename, required String contentType}) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return false;
     try {
-      final json = await _api.uploadFile('/users/me/avatar', field: 'file', bytes: bytes, filename: filename, contentType: contentType);
-      state = state.copyWith(user: AppUser.fromJson(json as Map<String, dynamic>));
+      final ref = FirebaseStorage.instance.ref('avatars/$uid');
+      await ref.putData(bytes, SettableMetadata(contentType: contentType));
+      final url = await ref.getDownloadURL();
+      await _db.collection('users').doc(uid).update({'avatarUrl': url});
       return true;
-    } on ApiException catch (e) {
-      state = state.copyWith(error: e.message);
+    } catch (_) {
+      state = state.copyWith(error: 'Could not upload that image');
       return false;
     }
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    _api.token = null;
-    state = const AuthState(initializing: false);
+    // Only touch GoogleSignIn if this session actually constructed one —
+    // avoids the lazy getter creating it (and, on web, crashing without a
+    // configured client ID) on every logout regardless of sign-in method.
+    if (_googleSignInInstance != null && await _googleSignInInstance!.isSignedIn()) {
+      await _googleSignInInstance!.signOut();
+    }
+    await _auth.signOut();
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _profileSub?.cancel();
+    super.dispose();
   }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(apiClientProvider));
+  return AuthNotifier(ref.watch(firebaseAuthProvider), ref.watch(firestoreProvider));
 });

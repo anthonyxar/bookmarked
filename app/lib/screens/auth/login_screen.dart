@@ -33,6 +33,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _continueWithGoogle() async {
+    final ok = await ref.read(authProvider.notifier).signInWithGoogle();
+    final error = ref.read(authProvider).error;
+    if (!ok && error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
@@ -90,6 +98,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: auth.loading
                     ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Log In'),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Expanded(child: Divider(color: AppColors.line)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('OR', style: TextStyle(fontSize: 11, color: AppColors.inkSoft)),
+                  ),
+                  const Expanded(child: Divider(color: AppColors.line)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: auth.loading ? null : _continueWithGoogle,
+                icon: const Icon(Icons.g_mobiledata, size: 22),
+                label: const Text('Continue with Google'),
               ),
               const SizedBox(height: 14),
               Center(
