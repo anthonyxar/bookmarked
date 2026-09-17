@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/book.dart';
 import '../../models/bracket.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/bracket_provider.dart';
+import '../../providers/books_provider.dart';
 import '../../providers/year_provider.dart';
-import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/star_rating.dart';
@@ -34,13 +34,19 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
   }
 
   Future<void> _pickFavorite(int month) async {
-    final books = await _fetchReadBooks();
+    final books = ref.read(userBooksProvider).value?.where((b) => b.read).toList() ?? [];
+    books.sort((a, b) {
+      if (a.endDate == null && b.endDate == null) return 0;
+      if (a.endDate == null) return 1;
+      if (b.endDate == null) return -1;
+      return b.endDate!.compareTo(a.endDate!);
+    });
     if (!mounted) return;
     if (books.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mark a book as read first to pick a favourite.')));
       return;
     }
-    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+    final picked = await showModalBottomSheet<Book>(
       context: context,
       backgroundColor: AppColors.paperSoft,
       isScrollControlled: true,
@@ -54,28 +60,19 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
           separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.line),
           itemBuilder: (context, i) {
             final b = books[i];
-            final color = Color(int.parse((b['cover_color'] as String).replaceFirst('#', '0xFF')));
+            final color = Color(int.parse(b.coverColor.replaceFirst('#', '0xFF')));
             return ListTile(
               onTap: () => Navigator.pop(context, b),
               leading: Container(width: 32, height: 46, color: color),
-              title: Text(b['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(b['author'] as String, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(b.author, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           },
         ),
       ),
     );
     if (picked != null) {
-      await ref.read(bracketProvider.notifier).setFavorite(month, picked['id'] as String);
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchReadBooks() async {
-    try {
-      final json = await ref.read(apiClientProvider).get('/books', query: {'filter': 'read', 'sort': 'end_date', 'limit': '200'});
-      return ((json as Map<String, dynamic>)['items'] as List).cast<Map<String, dynamic>>();
-    } on ApiException {
-      return [];
+      await ref.read(bracketProvider.notifier).setFavorite(month, picked.id);
     }
   }
 
