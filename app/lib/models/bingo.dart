@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class BingoSquare {
   final String id;
   final int position;
@@ -13,13 +15,16 @@ class BingoSquare {
     required this.locked,
   });
 
-  factory BingoSquare.fromJson(Map<String, dynamic> json) => BingoSquare(
-        id: json['id'] as String,
-        position: json['position'] as int,
-        label: json['label'] as String,
-        completed: json['completed'] as bool,
-        locked: json['locked'] as bool,
-      );
+  factory BingoSquare.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? const {};
+    return BingoSquare(
+      id: doc.id,
+      position: data['position'] as int? ?? int.parse(doc.id),
+      label: data['label'] as String? ?? '',
+      completed: data['completed'] as bool? ?? false,
+      locked: data['locked'] as bool? ?? false,
+    );
+  }
 }
 
 class BingoCard {
@@ -31,11 +36,4 @@ class BingoCard {
   BingoCard({required this.id, required this.year, required this.squares, this.availableYears = const []});
 
   int get completedCount => squares.where((s) => s.completed).length;
-
-  factory BingoCard.fromJson(Map<String, dynamic> json) => BingoCard(
-        id: json['id'] as String,
-        year: json['year'] as int,
-        squares: (json['squares'] as List).map((s) => BingoSquare.fromJson(s as Map<String, dynamic>)).toList(),
-        availableYears: (json['available_years'] as List? ?? []).map((y) => y as int).toList(),
-      );
 }
