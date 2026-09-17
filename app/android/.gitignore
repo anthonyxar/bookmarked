@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Per-project Firebase config; regenerate from the Firebase console instead of sharing.
+app/google-services.json

@@ -26,6 +26,23 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Placeholder: the real GoogleService-Info.plist doesn't have a
+				     REVERSED_CLIENT_ID yet, which means Google is not yet enabled as
+				     a sign-in provider for this Firebase project. Enable it in
+				     Firebase Auth > Sign-in method, re-download GoogleService-Info.plist,
+				     and replace this scheme with its REVERSED_CLIENT_ID value before
+				     Google Sign-In will work on iOS. -->
+				<string>com.googleusercontent.apps.000000000000-demo</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
