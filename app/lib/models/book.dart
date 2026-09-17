@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Book {
   final String id;
   final String title;
@@ -74,39 +76,43 @@ class Book {
 
   bool get isReading => purchased && !read && startDate != null;
 
-  static DateTime? _parseDate(dynamic v) => v == null ? null : DateTime.parse(v as String);
+  static DateTime? _parseDate(dynamic v) => v == null ? null : (v as Timestamp).toDate();
+  static List<String> _parseStrings(dynamic v) => (v as List?)?.map((e) => e as String).toList() ?? const [];
 
-  factory Book.fromJson(Map<String, dynamic> json) => Book(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        author: json['author'] as String,
-        series: json['series'] as String?,
-        bookNo: json['book_no'] as int?,
-        genre: json['genre'] as String?,
-        coverColor: json['cover_color'] as String,
-        coverUrl: json['cover_url'] as String?,
-        published: json['published'] as String?,
-        pages: json['pages'] as int?,
-        format: json['format'] as String,
-        purchased: json['purchased'] as bool,
-        read: json['read'] as bool,
-        timesRead: json['times_read'] as int,
-        startDate: _parseDate(json['start_date']),
-        endDate: _parseDate(json['end_date']),
-        rating: (json['rating'] as num?)?.toDouble(),
-        ratingCover: json['rating_cover'] as int?,
-        ratingWriting: json['rating_writing'] as int?,
-        ratingPlot: json['rating_plot'] as int?,
-        ratingCharacters: json['rating_characters'] as int?,
-        enjoyed: json['enjoyed'] as bool?,
-        readAgain: json['read_again'] as bool?,
-        likedMost: json['liked_most'] as String?,
-        likedLeast: json['liked_least'] as String?,
-        feel: json['feel'] as String?,
-        trope: json['trope'] as String?,
-        finalReview: json['final_review'] as String?,
-        favoriteCharacters: (json['favorite_characters'] as List).map((e) => e as String).toList(),
-        notableScenes: (json['notable_scenes'] as List).map((e) => e as String).toList(),
-        quotes: (json['quotes'] as List).map((e) => e as String).toList(),
-      );
+  factory Book.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? const {};
+    return Book(
+      id: doc.id,
+      title: data['title'] as String? ?? '',
+      author: data['author'] as String? ?? '',
+      series: data['series'] as String?,
+      bookNo: data['bookNo'] as int?,
+      genre: data['genre'] as String?,
+      coverColor: data['coverColor'] as String? ?? '#3F5D4E',
+      coverUrl: data['coverUrl'] as String?,
+      published: data['published'] as String?,
+      pages: data['pages'] as int?,
+      format: data['format'] as String? ?? 'physical',
+      purchased: data['purchased'] as bool? ?? false,
+      read: data['read'] as bool? ?? false,
+      timesRead: data['timesRead'] as int? ?? 0,
+      startDate: _parseDate(data['startDate']),
+      endDate: _parseDate(data['endDate']),
+      rating: (data['rating'] as num?)?.toDouble(),
+      ratingCover: data['ratingCover'] as int?,
+      ratingWriting: data['ratingWriting'] as int?,
+      ratingPlot: data['ratingPlot'] as int?,
+      ratingCharacters: data['ratingCharacters'] as int?,
+      enjoyed: data['enjoyed'] as bool?,
+      readAgain: data['readAgain'] as bool?,
+      likedMost: data['likedMost'] as String?,
+      likedLeast: data['likedLeast'] as String?,
+      feel: data['feel'] as String?,
+      trope: data['trope'] as String?,
+      finalReview: data['finalReview'] as String?,
+      favoriteCharacters: _parseStrings(data['favoriteCharacters']),
+      notableScenes: _parseStrings(data['notableScenes']),
+      quotes: _parseStrings(data['quotes']),
+    );
+  }
 }

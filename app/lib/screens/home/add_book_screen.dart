@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/book_search_result.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/books_provider.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../services/api_client.dart';
+import '../../services/book_search_service.dart';
 import '../../theme.dart';
 import '../../widgets/date_field.dart';
 import '../../widgets/genre_chip.dart';
@@ -85,20 +84,19 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
       _searchError = null;
     });
     try {
-      final json = await ref.read(apiClientProvider).get('/books/search', query: {'q': query});
-      final results = (json as List).map((r) => BookSearchResult.fromJson(r as Map<String, dynamic>)).toList();
+      final results = await searchBooks(query);
       if (!mounted) return;
       setState(() {
         _results = results;
         _searching = false;
         _searchError = results.isEmpty ? 'No matches found — you can still enter it manually below.' : null;
       });
-    } on ApiException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _searching = false;
         _results = [];
-        _searchError = e.message;
+        _searchError = 'Search failed — you can still enter it manually below.';
       });
     }
   }
@@ -144,17 +142,17 @@ class _AddBookScreenState extends ConsumerState<AddBookScreen> {
       'genre': _genre,
       'purchased': _purchased,
       'read': _read,
-      if (_selectedCoverUrl != null) 'cover_url': _selectedCoverUrl,
+      if (_selectedCoverUrl != null) 'coverUrl': _selectedCoverUrl,
       if (_selectedPages != null) 'pages': _selectedPages,
       if (_selectedPublished != null) 'published': _selectedPublished,
-      if (_read && _startDate != null) 'start_date': dateFieldFmt.format(_startDate!),
-      if (_read && _endDate != null) 'end_date': dateFieldFmt.format(_endDate!),
-      if (_read) 'rating_cover': _ratings['cover'],
-      if (_read) 'rating_writing': _ratings['writing'],
-      if (_read) 'rating_plot': _ratings['plot'],
-      if (_read) 'rating_characters': _ratings['characters'],
+      if (_read && _startDate != null) 'startDate': _startDate,
+      if (_read && _endDate != null) 'endDate': _endDate,
+      if (_read) 'ratingCover': _ratings['cover'],
+      if (_read) 'ratingWriting': _ratings['writing'],
+      if (_read) 'ratingPlot': _ratings['plot'],
+      if (_read) 'ratingCharacters': _ratings['characters'],
       if (_read) 'enjoyed': _enjoyed,
-      if (_read) 'read_again': _readAgain,
+      if (_read) 'readAgain': _readAgain,
     };
 
     final book = await ref.read(booksProvider.notifier).create(payload);

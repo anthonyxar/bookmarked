@@ -3,11 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/book.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/book_detail_provider.dart';
 import '../../providers/books_provider.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/error_state.dart';
@@ -38,23 +36,23 @@ class BookDetailScreen extends ConsumerStatefulWidget {
 
 class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
   Future<void> _toggle(String field, bool value) async {
-    try {
-      await ref.read(apiClientProvider).patch('/books/${widget.bookId}', body: {field: value});
-      ref.invalidate(bookDetailProvider(widget.bookId));
+    final book = await ref.read(booksProvider.notifier).toggleFlag(widget.bookId, field, value);
+    if (book == null && mounted) {
+      final error = ref.read(booksProvider).error ?? 'Something went wrong';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    } else {
       ref.invalidate(dashboardProvider);
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
   Future<void> _setTimesRead(int value) async {
     if (value < 0) return;
-    try {
-      await ref.read(apiClientProvider).patch('/books/${widget.bookId}', body: {'times_read': value});
-      ref.invalidate(bookDetailProvider(widget.bookId));
+    final book = await ref.read(booksProvider.notifier).update(widget.bookId, {'timesRead': value});
+    if (book == null && mounted) {
+      final error = ref.read(booksProvider).error ?? 'Something went wrong';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    } else {
       ref.invalidate(dashboardProvider);
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -120,7 +118,7 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
       body: bookAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.green)),
         error: (e, _) => ErrorState(
-          message: e is ApiException ? e.message : '$e',
+          message: '$e',
           onRetry: () => ref.invalidate(bookDetailProvider(widget.bookId)),
         ),
         data: _buildBody,

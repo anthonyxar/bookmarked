@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/book.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/books_provider.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/chip_list_input.dart';
 import '../../widgets/date_field.dart';
@@ -95,33 +94,33 @@ class _EditReviewScreenState extends ConsumerState<EditReviewScreen> {
     setState(() => _saving = true);
     final payload = {
       'read': true,
-      if (_startDate != null) 'start_date': dateFieldFmt.format(_startDate!),
-      if (_endDate != null) 'end_date': dateFieldFmt.format(_endDate!),
-      'rating_cover': _ratings['cover'],
-      'rating_writing': _ratings['writing'],
-      'rating_plot': _ratings['plot'],
-      'rating_characters': _ratings['characters'],
+      if (_startDate != null) 'startDate': _startDate,
+      if (_endDate != null) 'endDate': _endDate,
+      'ratingCover': _ratings['cover'],
+      'ratingWriting': _ratings['writing'],
+      'ratingPlot': _ratings['plot'],
+      'ratingCharacters': _ratings['characters'],
       'enjoyed': _enjoyed,
-      'read_again': _readAgain,
-      'liked_most': _likedMostCtrl.text.trim(),
-      'liked_least': _likedLeastCtrl.text.trim(),
+      'readAgain': _readAgain,
+      'likedMost': _likedMostCtrl.text.trim(),
+      'likedLeast': _likedLeastCtrl.text.trim(),
       'feel': _feelCtrl.text.trim(),
       'trope': _tropeCtrl.text.trim(),
-      'final_review': _finalReviewCtrl.text.trim(),
-      'favorite_characters': _favoriteCharacters,
-      'notable_scenes': _linesOf(_scenesCtrl.text),
+      'finalReview': _finalReviewCtrl.text.trim(),
+      'favoriteCharacters': _favoriteCharacters,
+      'notableScenes': _linesOf(_scenesCtrl.text),
       'quotes': _linesOf(_quotesCtrl.text),
     };
 
-    try {
-      await ref.read(apiClientProvider).patch('/books/${widget.book.id}', body: payload);
+    final book = await ref.read(booksProvider.notifier).update(widget.book.id, payload);
+    if (!mounted) return;
+    if (book != null) {
       ref.invalidate(dashboardProvider);
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _saving = false);
+      final error = ref.read(booksProvider).error ?? 'Could not save this review';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 

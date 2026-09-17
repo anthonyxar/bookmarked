@@ -43,24 +43,10 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
   bool _searchOpen = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(booksProvider.notifier).load());
-    _scrollCtrl.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 300) {
-      ref.read(booksProvider.notifier).loadMore();
-    }
-  }
-
-  @override
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
     _searchFocusNode.dispose();
-    _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -236,12 +222,6 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, i) {
-                        if (i == state.books.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(child: CircularProgressIndicator(color: AppColors.green, strokeWidth: 2)),
-                          );
-                        }
                         final book = state.books[i];
                         return BookCard(
                           book: book,
@@ -250,7 +230,7 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
                           ),
                         );
                       },
-                      childCount: state.books.length + (state.loadingMore ? 1 : 0),
+                      childCount: state.books.length,
                     ),
                   ),
                 ),

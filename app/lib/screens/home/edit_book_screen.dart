@@ -59,7 +59,7 @@ class _EditBookScreenState extends ConsumerState<EditBookScreen> {
       'title': _titleCtrl.text.trim(),
       'author': _authorCtrl.text.trim().isEmpty ? 'Unknown author' : _authorCtrl.text.trim(),
       'series': _seriesCtrl.text.trim().isEmpty ? null : _seriesCtrl.text.trim(),
-      'book_no': int.tryParse(_bookNoCtrl.text.trim()),
+      'bookNo': int.tryParse(_bookNoCtrl.text.trim()),
       'genre': _genre,
       'pages': int.tryParse(_pagesCtrl.text.trim()),
       'published': _publishedCtrl.text.trim().isEmpty ? null : _publishedCtrl.text.trim(),
