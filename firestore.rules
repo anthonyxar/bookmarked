@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// TEMPORARY: permissive dev rules so the emulator suite and app scaffolding
+// can be built out collection by collection. Real per-collection rules land
+// in https://github.com/anthonyxar/bookmarked/issues/16 before this project
+// ever points at a real (non-emulator) Firebase backend.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

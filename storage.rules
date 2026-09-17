@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// TEMPORARY: permissive dev rules, see firestore.rules and
+// https://github.com/anthonyxar/bookmarked/issues/19 for the real
+// per-path rules (avatars/club images) that replace this.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

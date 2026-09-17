@@ -31,6 +31,34 @@ services:
     volumes:
       - ./backend:/app
 
+  # Firebase Local Emulator Suite (Auth, Firestore, Storage, Functions).
+  # Additive alongside db/backend while the Firebase migration
+  # (https://github.com/anthonyxar/bookmarked/issues/4) is in progress — the
+  # old services are only removed once every domain is verified against this.
+  firebase:
+    build: ./firebase
+    working_dir: /workspace
+    # `functions` isn't in --only yet: functions/ has no real code until
+    # issues #17/#18 land, and the emulator warns on every boot without
+    # `npm install` run there first. Add it back once that code exists.
+    command: >
+      emulators:start --project demo-bookmarked
+      --only auth,firestore,storage
+    volumes:
+      - ./firebase.json:/workspace/firebase.json
+      - ./.firebaserc:/workspace/.firebaserc
+      - ./firestore.rules:/workspace/firestore.rules
+      - ./firestore.indexes.json:/workspace/firestore.indexes.json
+      - ./storage.rules:/workspace/storage.rules
+      - ./functions:/workspace/functions
+      - firebase_emulator_data:/workspace/.firebase
+    ports:
+      - "4000:4000" # Emulator UI
+      - "5001:5001" # Cloud Functions
+      - "8080:8080" # Firestore
+      - "9099:9099" # Auth
+      - "9199:9199" # Storage
+
   app:
     image: ghcr.io/cirruslabs/flutter:stable
     working_dir: /app
@@ -49,3 +77,4 @@ services:
 
 volumes:
   db_data:
+  firebase_emulator_data:
