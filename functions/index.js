@@ -2,6 +2,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentDeleted } = require("firebase-functions/v2/firestore");
 
 initializeApp();
 
@@ -40,6 +41,17 @@ exports.lookupUserByEmail = onCall(async (request) => {
   };
 });
 
+// Firestore doesn't cascade deletes: deleteClub in clubs_provider.dart only
+// removes the clubs/{clubId} doc itself, leaving memberships, books (and
+// their progress/notes), bingoTemplate, and memberBingo (and its squares)
+// orphaned. This is pure hygiene, not integrity enforcement — the ADR's one
+// carve-out for a Cloud Function that isn't a narrow lookup. See issue #17.
+exports.cleanupClubSubcollections = onDocumentDeleted("clubs/{clubId}", async (event) => {
+  const db = getFirestore();
+  const clubRef = db.collection("clubs").doc(event.params.clubId);
+  const subcollections = await clubRef.listCollections();
+  await Promise.all(subcollections.map((col) => db.recursiveDelete(col)));
+});
+
 // Cloud Functions still to add here:
-// - recursive delete of a club's subcollections on club deletion (issue #17)
 // - FCM push notification triggers (issue #18)
