@@ -9,17 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
-import '../services/api_client.dart';
 import '../utils/image_validation.dart';
 
 final firebaseAuthProvider = Provider<fb_auth.FirebaseAuth>((ref) => fb_auth.FirebaseAuth.instance);
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
-
-// Legacy REST client for domains not yet migrated off the FastAPI backend
-// (issues #9-#15). It's unauthenticated now that there's no JWT to attach —
-// those backend calls will 401 until each domain moves to Firestore. Remove
-// this once every provider that imports it has been migrated (issue #20).
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
 class AuthState {
   final AppUser? user;

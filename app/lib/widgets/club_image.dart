@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/api_client.dart';
 import '../theme.dart';
 
 class ClubImage extends StatelessWidget {
@@ -30,7 +29,7 @@ class ClubImage extends StatelessWidget {
       child: imageUrl == null
           ? fallback
           : Image.network(
-              resolveMediaUrl(imageUrl!),
+              imageUrl!,
               width: size,
               height: size,
               fit: BoxFit.cover,

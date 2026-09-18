@@ -37,7 +37,6 @@ dependencies:
 
   flutter_riverpod: ^2.6.1
   http: ^1.2.2
-  http_parser: ^4.0.2
   image_picker: ^1.1.2
   shared_preferences: ^2.3.3
   google_fonts: ^6.2.1

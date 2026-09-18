@@ -25,3 +25,6 @@ app/**/generated_plugin_registrant.dart
 .vscode/
 .idea/
 *.iml
+
+# Claude Code session handoffs (personal working notes, not for commits/PRs)
+.claude/handoffs/

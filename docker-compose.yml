@@ -1,40 +1,7 @@
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-bookmarked}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookmarked}
-      POSTGRES_DB: ${POSTGRES_DB:-bookmarked}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bookmarked}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://bookmarked:bookmarked@db:5432/bookmarked}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-
-  # Firebase Local Emulator Suite (Auth, Firestore, Storage, Functions).
-  # Additive alongside db/backend while the Firebase migration
-  # (https://github.com/anthonyxar/bookmarked/issues/4) is in progress — the
-  # old services are only removed once every domain is verified against this.
+  # Firebase Local Emulator Suite (Auth, Firestore, Storage, Functions) —
+  # replaces the old Postgres/FastAPI services entirely now that every domain
+  # has been migrated (https://github.com/anthonyxar/bookmarked/issues/4).
   firebase:
     build: ./firebase
     working_dir: /workspace
@@ -88,12 +55,11 @@ services:
     image: ghcr.io/cirruslabs/flutter:stable
     working_dir: /app
     depends_on:
-      - backend
+      - firebase
     volumes:
       - ./app:/app
     command: sh -c "flutter pub get && tail -f /dev/null"
 
 volumes:
-  db_data:
   firebase_emulator_data:
   firebase_emulator_export:

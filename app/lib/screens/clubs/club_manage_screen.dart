@@ -5,7 +5,6 @@ import '../../models/club.dart';
 import '../../models/club_bingo.dart';
 import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
-import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/error_state.dart';
@@ -134,15 +133,9 @@ class _ClubManageScreenState extends ConsumerState<ClubManageScreen> {
     if (clubAsync.isLoading || bingoAsync.isLoading) {
       body = const Center(child: CircularProgressIndicator(color: AppColors.green));
     } else if (clubAsync.hasError) {
-      body = ErrorState(
-        message: clubAsync.error is ApiException ? (clubAsync.error as ApiException).message : '${clubAsync.error}',
-        onRetry: _reload,
-      );
+      body = ErrorState(message: '${clubAsync.error}', onRetry: _reload);
     } else if (bingoAsync.hasError) {
-      body = ErrorState(
-        message: bingoAsync.error is ApiException ? (bingoAsync.error as ApiException).message : '${bingoAsync.error}',
-        onRetry: _reload,
-      );
+      body = ErrorState(message: '${bingoAsync.error}', onRetry: _reload);
     } else {
       body = _buildBody(clubAsync.value!);
     }

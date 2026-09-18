@@ -8,7 +8,6 @@ import '../../models/club.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
-import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../utils/image_validation.dart';
 import '../../widgets/club_image.dart';
@@ -244,7 +243,7 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
       ),
       body: clubAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.green)),
-        error: (e, _) => ErrorState(message: e is ApiException ? e.message : '$e', onRetry: _reload),
+        error: (e, _) => ErrorState(message: '$e', onRetry: _reload),
         data: (club) => _buildBody(club, myId),
       ),
     );

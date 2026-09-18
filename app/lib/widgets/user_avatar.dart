@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/api_client.dart';
 import '../theme.dart';
 
 class UserAvatar extends StatelessWidget {
@@ -23,7 +22,7 @@ class UserAvatar extends StatelessWidget {
 
     return ClipOval(
       child: Image.network(
-        resolveMediaUrl(avatarUrl!),
+        avatarUrl!,
         width: size,
         height: size,
         fit: BoxFit.cover,
