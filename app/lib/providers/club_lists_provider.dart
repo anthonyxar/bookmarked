@@ -1,15 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/club.dart';
 import '../models/club_note.dart';
 import '../models/club_review.dart';
-import '../services/api_client.dart';
 import 'auth_provider.dart';
 
 const _pageSize = 30;
 
 String _friendlyError(Object e) {
+  if (e is FirebaseFunctionsException) return e.message ?? 'Something went wrong';
   if (e is FirebaseException) return e.message ?? 'Something went wrong';
   return '$e';
 }
@@ -252,26 +253,30 @@ class ClubReviewsState {
 }
 
 class ClubReviewsNotifier extends StateNotifier<ClubReviewsState> {
-  final ApiClient _api;
   final ClubReviewsArgs args;
-  ClubReviewsNotifier(this._api, this.args) : super(const ClubReviewsState()) {
+  ClubReviewsNotifier(this.args) : super(const ClubReviewsState()) {
     load();
+  }
+
+  Future<Map<String, dynamic>> _call(int offset, bool override) async {
+    final result = await FirebaseFunctions.instance.httpsCallable('listClubReviews').call({
+      'clubId': args.clubId,
+      'clubBookId': args.clubBookId,
+      'override': override,
+      'limit': _pageSize,
+      'offset': offset,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
   }
 
   Future<void> load({bool override = false}) async {
     state = state.copyWith(loading: true, clearError: true);
     try {
-      final json = await _api.get('/clubs/${args.clubId}/reviews', query: {
-        'override': override.toString(),
-        'club_book_id': args.clubBookId,
-        'limit': '$_pageSize',
-        'offset': '0',
-      });
-      final map = json as Map<String, dynamic>;
-      final reviews = (map['items'] as List).map((r) => ClubReviewEntry.fromJson(r as Map<String, dynamic>)).toList();
+      final map = await _call(0, override);
+      final reviews = (map['items'] as List).map((r) => ClubReviewEntry.fromJson(Map<String, dynamic>.from(r as Map))).toList();
       state = state.copyWith(reviews: reviews, revealed: override, loading: false, total: map['total'] as int);
-    } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: e.message);
+    } catch (e) {
+      state = state.copyWith(loading: false, error: _friendlyError(e));
     }
   }
 
@@ -279,21 +284,15 @@ class ClubReviewsNotifier extends StateNotifier<ClubReviewsState> {
     if (state.loadingMore || state.loading || !state.hasMore) return;
     state = state.copyWith(loadingMore: true);
     try {
-      final json = await _api.get('/clubs/${args.clubId}/reviews', query: {
-        'override': state.revealed.toString(),
-        'club_book_id': args.clubBookId,
-        'limit': '$_pageSize',
-        'offset': '${state.reviews.length}',
-      });
-      final map = json as Map<String, dynamic>;
-      final more = (map['items'] as List).map((r) => ClubReviewEntry.fromJson(r as Map<String, dynamic>)).toList();
+      final map = await _call(state.reviews.length, state.revealed);
+      final more = (map['items'] as List).map((r) => ClubReviewEntry.fromJson(Map<String, dynamic>.from(r as Map))).toList();
       state = state.copyWith(reviews: [...state.reviews, ...more], loadingMore: false, total: map['total'] as int);
-    } on ApiException catch (e) {
-      state = state.copyWith(loadingMore: false, error: e.message);
+    } catch (e) {
+      state = state.copyWith(loadingMore: false, error: _friendlyError(e));
     }
   }
 }
 
 final clubReviewsProvider = StateNotifierProvider.family<ClubReviewsNotifier, ClubReviewsState, ClubReviewsArgs>((ref, args) {
-  return ClubReviewsNotifier(ref.watch(apiClientProvider), args);
+  return ClubReviewsNotifier(args);
 });
