@@ -38,9 +38,29 @@ services:
   firebase:
     build: ./firebase
     working_dir: /workspace
-    command: >
-      emulators:start --project demo-bookmarked
-      --only auth,firestore,storage,functions
+    # firebase_emulator_data (below) is the CLI's own cache dir, not emulator
+    # data, so persisting data across restarts needs a separate volume
+    # (firebase_emulator_export) — mounted at .emulator-data, with the actual
+    # export/import target one level down at .emulator-data/export: pointing
+    # --export-on-exit at the mount point itself fails ("EBUSY: resource busy
+    # or locked, rmdir ...") since the CLI tries to rmdir+recreate that
+    # directory on every export, which you can't do to a mount point.
+    # --import is guarded on a prior export actually existing, since passing
+    # it an empty/missing directory errors.
+    # The image's ENTRYPOINT is ["firebase"], so this needs clearing to run
+    # as a shell script instead — and command must be a 3-element list, not
+    # a plain string, or Compose word-splits the script into separate args.
+    entrypoint: []
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f /workspace/.emulator-data/export/firebase-export-metadata.json ]; then
+          IMPORT_FLAG="--import=/workspace/.emulator-data/export"
+        else
+          IMPORT_FLAG=""
+        fi
+        exec firebase emulators:start --project demo-bookmarked --only auth,firestore,storage,functions --export-on-exit=/workspace/.emulator-data/export $$IMPORT_FLAG
     volumes:
       - ./firebase.json:/workspace/firebase.json
       - ./.firebaserc:/workspace/.firebaserc
@@ -50,6 +70,7 @@ services:
       - ./functions:/workspace/functions
       - ./firestore-tests:/workspace/firestore-tests
       - firebase_emulator_data:/workspace/.firebase
+      - firebase_emulator_export:/workspace/.emulator-data
     ports:
       - "4000:4000" # Emulator UI
       - "5001:5001" # Cloud Functions
@@ -76,3 +97,4 @@ services:
 volumes:
   db_data:
   firebase_emulator_data:
+  firebase_emulator_export:
