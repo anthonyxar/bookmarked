@@ -48,6 +48,7 @@ services:
       - ./firestore.indexes.json:/workspace/firestore.indexes.json
       - ./storage.rules:/workspace/storage.rules
       - ./functions:/workspace/functions
+      - ./firestore-tests:/workspace/firestore-tests
       - firebase_emulator_data:/workspace/.firebase
     ports:
       - "4000:4000" # Emulator UI

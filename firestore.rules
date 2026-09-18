@@ -1,13 +1,179 @@
 rules_version = '2';
 
-// TEMPORARY: permissive dev rules so the emulator suite and app scaffolding
-// can be built out collection by collection. Real per-collection rules land
-// in https://github.com/anthonyxar/bookmarked/issues/16 before this project
-// ever points at a real (non-emulator) Firebase backend.
+// Paths and write shapes here are derived from the actual client code in
+// app/lib/providers/ (clubs_provider.dart, club_lists_provider.dart,
+// bingo_provider.dart, bracket_provider.dart, auth_provider.dart), not from
+// the migration issue bodies that preceded implementation — some of those
+// (e.g. issue #11's flat `bingoCard/{year}` path) don't match what shipped.
+// See issue #16 and docs/adr/0001-migrate-postgres-fastapi-to-firebase.md.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myMembership(clubId) {
+      return get(/databases/$(database)/documents/clubs/$(clubId)/memberships/$(request.auth.uid)).data;
+    }
+
+    // A club's own membership doc is the source of truth for "am I in this
+    // club, and what's my role" — no separate roster/ACL collection exists.
+    function isActiveMember(clubId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/clubs/$(clubId)/memberships/$(request.auth.uid)) &&
+        myMembership(clubId).status == 'active';
+    }
+
+    function isOwnerOrAdmin(clubId) {
+      return isActiveMember(clubId) && myMembership(clubId).role in ['owner', 'admin'];
+    }
+
+    // Checked against clubs/{clubId}.ownerId directly (not the membership
+    // doc) so it stays correct mid-transfer, when the batch that flips
+    // ownerId also demotes the old owner's own membership role to 'admin'.
+    function isClubOwner(clubId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
+    }
+
+    // --- Personal collections: owner-only, no cross-user access at all ----
+
+    match /users/{uid} {
+      // Other members' name/avatarUrl need to be readable for club rosters,
+      // invite-sender names, bingo leaderboard names, and note authorship —
+      // there's no separate public-profile collection, and no email field
+      // is ever stored here (see issue #23), so a full-doc read doesn't leak
+      // more than club UI already relies on.
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && uid == request.auth.uid;
+      allow delete: if false;
+
+      match /books/{bookId} {
+        allow read, write: if isSignedIn() && uid == request.auth.uid;
+      }
+
+      match /bingoCards/{year} {
+        allow read, write: if isSignedIn() && uid == request.auth.uid;
+        match /squares/{position} {
+          allow read, write: if isSignedIn() && uid == request.auth.uid;
+        }
+      }
+
+      match /monthlyFavorites/{year} {
+        allow read, write: if isSignedIn() && uid == request.auth.uid;
+        match /months/{month} {
+          allow read, write: if isSignedIn() && uid == request.auth.uid;
+        }
+      }
+
+      match /bracketPicks/{year} {
+        allow read, write: if isSignedIn() && uid == request.auth.uid;
+        match /matches/{matchId} {
+          allow read, write: if isSignedIn() && uid == request.auth.uid;
+        }
+      }
+    }
+
+    // Backs the `collectionGroup('memberships').where('userId', isEqualTo:
+    // uid)` query in ClubsNotifier.load() — a collection-group query must
+    // satisfy a rule for every document it could return, so this has to be
+    // its own top-level match rather than living inside /clubs/{clubId}.
+    match /{path=**}/memberships/{memberId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /clubs/{clubId} {
+      allow read: if isActiveMember(clubId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      // Only the current owner may reassign ownerId itself; owner/admin can
+      // edit everything else (name/description/imageUrl).
+      allow update: if isOwnerOrAdmin(clubId) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId']) || isClubOwner(clubId));
+      allow delete: if isClubOwner(clubId);
+
+      match /memberships/{memberId} {
+        allow read: if isSignedIn() && (memberId == request.auth.uid || isActiveMember(clubId));
+
+        allow create: if isSignedIn() && (
+          // Creating your own owner membership right after creating the club.
+          (memberId == request.auth.uid && request.resource.data.role == 'owner' &&
+            request.resource.data.status == 'active' && isClubOwner(clubId)) ||
+          // Owner/admin inviting someone new.
+          (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && request.resource.data.status == 'invited')
+        );
+
+        allow update: if isSignedIn() && (
+          // Accepting or declining your own invite — role can't change here.
+          (memberId == request.auth.uid && resource.data.status == 'invited' &&
+            request.resource.data.status in ['active', 'declined'] &&
+            request.resource.data.role == resource.data.role) ||
+          // Leaving — the owner can't leave this way (must transfer first).
+          (memberId == request.auth.uid && resource.data.status == 'active' && resource.data.role != 'owner' &&
+            request.resource.data.status == 'removed' && request.resource.data.role == resource.data.role) ||
+          // Owner/admin re-inviting, promoting/demoting between admin and
+          // member, or removing someone — never targets the owner's own row
+          // and never grants the 'owner' role (that's transfer-only, below).
+          (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && resource.data.role != 'owner' &&
+            request.resource.data.role in ['admin', 'member'] &&
+            (request.resource.data.status == resource.data.status ||
+              request.resource.data.status in ['invited', 'removed'])) ||
+          // Ownership transfer: only the current owner can grant 'owner' or
+          // 'admin' on an active membership (covers both halves of the
+          // transfer batch — the new owner's row and the old owner's own).
+          (isClubOwner(clubId) && resource.data.status == 'active' &&
+            request.resource.data.status == 'active' && request.resource.data.role in ['owner', 'admin'])
+        );
+
+        allow delete: if false; // memberships are soft-removed via status, never hard-deleted
+      }
+
+      match /books/{bookId} {
+        allow read: if isActiveMember(clubId);
+        // setCurrentBook creates the new book and, in the same batch, flips
+        // isCurrent:false on the prior one — both owner/admin-only.
+        allow create, update: if isOwnerOrAdmin(clubId);
+        allow delete: if false;
+
+        match /progress/{uid} {
+          allow read: if isActiveMember(clubId);
+          allow write: if isSignedIn() && (
+            // A member manages their own reading progress.
+            (uid == request.auth.uid && isActiveMember(clubId)) ||
+            // setCurrentBook also seeds every active member's progress doc
+            // back to the fresh (chapter 0, unfinished) state when a new
+            // book is picked — scoped to exactly that shape so owner/admin
+            // can reset but not fabricate someone else's real progress.
+            (isOwnerOrAdmin(clubId) && request.resource.data.currentChapter == 0 &&
+              request.resource.data.finished == false)
+          );
+        }
+
+        match /notes/{noteId} {
+          allow read: if isActiveMember(clubId);
+          allow create: if isSignedIn() && isActiveMember(clubId) && request.resource.data.userId == request.auth.uid;
+          allow update, delete: if false; // notes are add-only from the client today
+        }
+      }
+
+      match /bingoTemplate/{position} {
+        allow read: if isActiveMember(clubId);
+        allow write: if isOwnerOrAdmin(clubId); // covers setBingoTemplate's delete-then-recreate
+      }
+
+      match /memberBingo/{uid} {
+        allow read: if isActiveMember(clubId); // leaderboard needs every member's card
+        allow create, update: if isSignedIn() && uid == request.auth.uid && isActiveMember(clubId);
+        allow delete: if isOwnerOrAdmin(clubId); // setBingoTemplate wipes every member's card on reset
+
+        match /squares/{position} {
+          allow read: if isActiveMember(clubId);
+          allow create: if isSignedIn() && uid == request.auth.uid && isActiveMember(clubId);
+          // The free space (locked:true) can never be toggled by anyone.
+          allow update: if isSignedIn() && uid == request.auth.uid && isActiveMember(clubId) &&
+            resource.data.locked == false;
+          allow delete: if isOwnerOrAdmin(clubId);
+        }
+      }
     }
   }
 }
