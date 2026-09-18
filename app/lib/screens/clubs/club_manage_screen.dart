@@ -50,11 +50,12 @@ class _ClubManageScreenState extends ConsumerState<ClubManageScreen> {
       danger: false,
     );
     if (!confirmed) return;
-    try {
-      await ref.read(apiClientProvider).patch('/clubs/${widget.clubId}/members/$userId', body: {'role': newRole});
+    final ok = await ref.read(clubsProvider.notifier).updateMemberRole(widget.clubId, userId, newRole);
+    if (ok) {
       ref.invalidate(clubDetailProvider(widget.clubId));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } else if (mounted) {
+      final error = ref.read(clubsProvider).error ?? 'Could not update that member';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -66,11 +67,12 @@ class _ClubManageScreenState extends ConsumerState<ClubManageScreen> {
       confirmLabel: 'Remove',
     );
     if (!confirmed) return;
-    try {
-      await ref.read(apiClientProvider).patch('/clubs/${widget.clubId}/members/$userId', body: {'remove': true});
+    final ok = await ref.read(clubsProvider.notifier).removeMember(widget.clubId, userId);
+    if (ok) {
       ref.invalidate(clubDetailProvider(widget.clubId));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } else if (mounted) {
+      final error = ref.read(clubsProvider).error ?? 'Could not remove that member';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 

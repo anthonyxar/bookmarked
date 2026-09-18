@@ -1,7 +1,6 @@
 class ClubMember {
   final String userId;
   final String name;
-  final String email;
   final String? avatarUrl;
   final String role;
   final String status;
@@ -11,7 +10,6 @@ class ClubMember {
   ClubMember({
     required this.userId,
     required this.name,
-    required this.email,
     this.avatarUrl,
     required this.role,
     required this.status,
@@ -29,10 +27,10 @@ class ClubMember {
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }
 
+  // TODO(#14): see ClubBook.fromJson.
   factory ClubMember.fromJson(Map<String, dynamic> json) => ClubMember(
         userId: json['user_id'] as String,
         name: json['name'] as String,
-        email: json['email'] as String,
         avatarUrl: json['avatar_url'] as String?,
         role: json['role'] as String,
         status: json['status'] as String,
@@ -68,6 +66,9 @@ class ClubBook {
 
   static DateTime? _parseDate(dynamic v) => v == null ? null : DateTime.parse(v as String);
 
+  // TODO(#14): still used by the not-yet-migrated club book/progress/notes
+  // REST calls (club_lists_provider.dart, club_history_screen.dart). Remove
+  // once those move to Firestore.
   factory ClubBook.fromJson(Map<String, dynamic> json) => ClubBook(
         id: json['id'] as String,
         title: json['title'] as String,
@@ -114,6 +115,7 @@ class Club {
     return null;
   }
 
+  // TODO(#14): see ClubBook.fromJson.
   factory Club.fromJson(Map<String, dynamic> json) => Club(
         id: json['id'] as String,
         name: json['name'] as String,
@@ -139,11 +141,4 @@ class ClubInvite {
     required this.invitedByName,
     required this.invitedAt,
   });
-
-  factory ClubInvite.fromJson(Map<String, dynamic> json) => ClubInvite(
-        clubId: json['club_id'] as String,
-        clubName: json['club_name'] as String,
-        invitedByName: json['invited_by_name'] as String,
-        invitedAt: DateTime.parse(json['invited_at'] as String),
-      );
 }

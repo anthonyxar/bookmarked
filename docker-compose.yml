@@ -38,12 +38,9 @@ services:
   firebase:
     build: ./firebase
     working_dir: /workspace
-    # `functions` isn't in --only yet: functions/ has no real code until
-    # issues #17/#18 land, and the emulator warns on every boot without
-    # `npm install` run there first. Add it back once that code exists.
     command: >
       emulators:start --project demo-bookmarked
-      --only auth,firestore,storage
+      --only auth,firestore,storage,functions
     volumes:
       - ./firebase.json:/workspace/firebase.json
       - ./.firebaserc:/workspace/.firebaserc

@@ -162,11 +162,13 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
     );
     if (email == null || email.isEmpty) return;
 
-    try {
-      await ref.read(apiClientProvider).post('/clubs/${widget.clubId}/invites', body: {'email': email});
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite sent')));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    final ok = await ref.read(clubsProvider.notifier).inviteMember(widget.clubId, email);
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite sent')));
+    } else {
+      final error = ref.read(clubsProvider).error ?? 'Could not send that invite';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
