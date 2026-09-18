@@ -79,21 +79,19 @@ services:
       - "9099:9099" # Auth
       - "9199:9199" # Storage
 
+  # Android/iOS only now (issue #7) — there's no emulator/device inside this
+  # container to run against, so it just stays up as a workspace for ad hoc
+  # `docker compose run --rm --no-deps app sh -c "..."` commands (flutter
+  # analyze, flutter build apk --debug, etc. — see AGENTS.md). Build an APK
+  # this way and sideload it over USB/adb from the host to test on a device.
   app:
     image: ghcr.io/cirruslabs/flutter:stable
     working_dir: /app
-    environment:
-      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
     depends_on:
       - backend
-    ports:
-      - "5000:5000"
     volumes:
       - ./app:/app
-    command: >
-      sh -c "flutter pub get &&
-             flutter run -d web-server --web-hostname 0.0.0.0 --web-port 5000 --release
-             --dart-define=API_BASE_URL=$$API_BASE_URL"
+    command: sh -c "flutter pub get && tail -f /dev/null"
 
 volumes:
   db_data:
