@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/book_search_result.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/clubs_provider.dart';
-import '../../services/api_client.dart';
+import '../../services/book_search_service.dart';
 import '../../theme.dart';
 import '../../widgets/date_field.dart';
 
@@ -63,20 +62,19 @@ class _ClubBookPickerScreenState extends ConsumerState<ClubBookPickerScreen> {
       _searchError = null;
     });
     try {
-      final json = await ref.read(apiClientProvider).get('/books/search', query: {'q': query});
-      final results = (json as List).map((r) => BookSearchResult.fromJson(r as Map<String, dynamic>)).toList();
+      final results = await searchBooks(query);
       if (!mounted) return;
       setState(() {
         _results = results;
         _searching = false;
         _searchError = results.isEmpty ? 'No matches found — you can still enter it manually below.' : null;
       });
-    } on ApiException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _searching = false;
         _results = [];
-        _searchError = e.message;
+        _searchError = 'Search failed — you can still enter it manually below.';
       });
     }
   }
