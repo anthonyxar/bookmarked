@@ -71,14 +71,13 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
   }
 
   Future<void> _updateProgress({int? chapter, bool? finished}) async {
-    try {
-      await ref.read(apiClientProvider).patch('/clubs/${widget.clubId}/progress', body: {
-        if (chapter != null) 'current_chapter': chapter,
-        if (finished != null) 'finished': finished,
-      });
+    final ok = await ref.read(clubsProvider.notifier).updateMyProgress(widget.clubId, currentChapter: chapter, finished: finished);
+    if (!mounted) return;
+    if (ok) {
       _reload();
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } else {
+      final error = ref.read(clubsProvider).error ?? 'Could not update your progress';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -127,14 +126,13 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
 
     if (saved != true) return;
 
-    try {
-      await ref.read(apiClientProvider).patch('/clubs/${widget.clubId}/book', body: {
-        'start_date': startDate != null ? dateFieldFmt.format(startDate!) : null,
-        'end_date': endDate != null ? dateFieldFmt.format(endDate!) : null,
-      });
+    final ok = await ref.read(clubsProvider.notifier).updateCurrentBookDates(widget.clubId, startDate: startDate, endDate: endDate);
+    if (!mounted) return;
+    if (ok) {
       _reload();
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } else {
+      final error = ref.read(clubsProvider).error ?? 'Could not update those dates';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/book_search_result.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/clubs_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
 import '../../widgets/date_field.dart';
@@ -98,21 +99,23 @@ class _ClubBookPickerScreenState extends ConsumerState<ClubBookPickerScreen> {
     if (title.isEmpty || author.isEmpty) return;
 
     setState(() => _saving = true);
-    try {
-      await ref.read(apiClientProvider).post('/clubs/${widget.clubId}/book', body: {
-        'title': title,
-        'author': author,
-        'total_chapters': _chaptersController.text.trim().isEmpty ? null : int.tryParse(_chaptersController.text.trim()),
-        if (_selectedCoverUrl != null) 'cover_url': _selectedCoverUrl,
-        if (_startDate != null) 'start_date': dateFieldFmt.format(_startDate!),
-        if (_endDate != null) 'end_date': dateFieldFmt.format(_endDate!),
-      });
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    final ok = await ref.read(clubsProvider.notifier).setCurrentBook(
+          widget.clubId,
+          title: title,
+          author: author,
+          totalChapters: _chaptersController.text.trim().isEmpty ? null : int.tryParse(_chaptersController.text.trim()),
+          coverUrl: _selectedCoverUrl,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
+      final error = ref.read(clubsProvider).error ?? 'Could not set that book';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
+    setState(() => _saving = false);
   }
 
   @override

@@ -51,25 +51,38 @@ String _friendlyError(Object e) {
 }
 
 /// Reads a club doc plus its memberships (each joined against the member's
-/// `users/{uid}` profile) into a [Club]. `currentBook` stays null until the
-/// club-book/progress domain (issue #14) is migrated.
+/// `users/{uid}` profile and, if the club has a current book, that member's
+/// reading progress on it) into a [Club].
 Future<Club> fetchClub(FirebaseFirestore db, String clubId, String myRole) async {
   final clubRef = db.collection('clubs').doc(clubId);
   final clubDoc = await clubRef.get();
   final data = clubDoc.data();
   if (data == null) throw StateError('Club not found');
 
+  final currentBookSnap = await clubRef.collection('books').where('isCurrent', isEqualTo: true).limit(1).get();
+  final currentBookDoc = currentBookSnap.docs.isEmpty ? null : currentBookSnap.docs.first;
+  final currentBook = currentBookDoc != null ? ClubBook.fromFirestore(currentBookDoc) : null;
+
+  var progressByUser = const <String, Map<String, dynamic>>{};
+  if (currentBookDoc != null) {
+    final progressSnap = await currentBookDoc.reference.collection('progress').get();
+    progressByUser = {for (final p in progressSnap.docs) p.id: p.data()};
+  }
+
   final membershipsSnap = await clubRef.collection('memberships').get();
   final members = <ClubMember>[];
   for (final m in membershipsSnap.docs) {
     final md = m.data();
     final profile = (await db.collection('users').doc(m.id).get()).data();
+    final progress = progressByUser[m.id];
     members.add(ClubMember(
       userId: m.id,
       name: profile?['name'] as String? ?? 'Reader',
       avatarUrl: profile?['avatarUrl'] as String?,
       role: md['role'] as String,
       status: md['status'] as String,
+      currentChapter: progress?['currentChapter'] as int?,
+      finished: progress?['finished'] as bool?,
     ));
   }
 
@@ -82,6 +95,7 @@ Future<Club> fetchClub(FirebaseFirestore db, String clubId, String myRole) async
     myRole: myRole,
     createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     members: members,
+    currentBook: currentBook,
   );
 }
 
@@ -92,6 +106,14 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
 
   CollectionReference<Map<String, dynamic>> _memberships(String clubId) =>
       _db.collection('clubs').doc(clubId).collection('memberships');
+
+  CollectionReference<Map<String, dynamic>> _books(String clubId) =>
+      _db.collection('clubs').doc(clubId).collection('books');
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _currentBookDoc(String clubId) async {
+    final snap = await _books(clubId).where('isCurrent', isEqualTo: true).limit(1).get();
+    return snap.docs.isEmpty ? null : snap.docs.first;
+  }
 
   Future<void> load() async {
     if (_uid == null) {
@@ -302,6 +324,96 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
   Future<bool> removeMember(String clubId, String userId) async {
     try {
       await _memberships(clubId).doc(userId).update({'status': 'removed'});
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+  }
+
+  /// Picks a club's current book, retiring any previous current book and
+  /// giving every active member a fresh (chapter 0, unfinished) progress
+  /// doc for it — mirrors `set_current_book` from the old backend.
+  Future<bool> setCurrentBook(
+    String clubId, {
+    required String title,
+    required String author,
+    int? totalChapters,
+    String? coverUrl,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final priorCurrent = await _currentBookDoc(clubId);
+      final activeMembers = await _memberships(clubId).where('status', isEqualTo: 'active').get();
+
+      final batch = _db.batch();
+      if (priorCurrent != null) {
+        batch.update(priorCurrent.reference, {'isCurrent': false});
+      }
+      final newBookRef = _books(clubId).doc();
+      batch.set(newBookRef, {
+        'title': title,
+        'author': author,
+        'totalChapters': totalChapters,
+        'coverColor': '#3F5D4E',
+        'coverUrl': coverUrl,
+        'isCurrent': true,
+        'startDate': startDate != null ? Timestamp.fromDate(startDate) : null,
+        'endDate': endDate != null ? Timestamp.fromDate(endDate) : null,
+        'pickedAt': FieldValue.serverTimestamp(),
+      });
+      for (final membership in activeMembers.docs) {
+        batch.set(newBookRef.collection('progress').doc(membership.id), {
+          'currentChapter': 0,
+          'finished': false,
+          'finishedAt': null,
+        });
+      }
+      await batch.commit();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+  }
+
+  Future<bool> updateCurrentBookDates(String clubId, {DateTime? startDate, DateTime? endDate}) async {
+    try {
+      final book = await _currentBookDoc(clubId);
+      if (book == null) {
+        state = state.copyWith(error: "This club hasn't picked a book yet");
+        return false;
+      }
+      await book.reference.update({
+        'startDate': startDate != null ? Timestamp.fromDate(startDate) : null,
+        'endDate': endDate != null ? Timestamp.fromDate(endDate) : null,
+      });
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+  }
+
+  /// Updates the signed-in member's own progress on the club's current book,
+  /// creating the progress doc on first write — mirrors `update_progress`.
+  Future<bool> updateMyProgress(String clubId, {int? currentChapter, bool? finished}) async {
+    if (_uid == null) return false;
+    try {
+      final book = await _currentBookDoc(clubId);
+      if (book == null) {
+        state = state.copyWith(error: "This club hasn't picked a book yet");
+        return false;
+      }
+      final updates = <String, dynamic>{};
+      if (currentChapter != null) updates['currentChapter'] = currentChapter;
+      if (finished != null) {
+        updates['finished'] = finished;
+        updates['finishedAt'] = finished ? FieldValue.serverTimestamp() : null;
+      }
+      if (updates.isEmpty) return true;
+      await book.reference.collection('progress').doc(_uid).set(updates, SetOptions(merge: true));
       return true;
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));

@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/club.dart';
-import '../../providers/auth_provider.dart';
-import '../../services/api_client.dart';
+import '../../providers/club_lists_provider.dart';
 import '../../theme.dart';
 import '../../widgets/club_book_cover.dart';
 import 'club_notes_screen.dart';
@@ -35,44 +34,20 @@ class ClubHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _ClubHistoryScreenState extends ConsumerState<ClubHistoryScreen> {
-  List<ClubBook> _books = [];
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final json = await ref.read(apiClientProvider).get('/clubs/${widget.clubId}/books', query: {'limit': '200'});
-      final items = (json as Map<String, dynamic>)['items'] as List;
-      setState(() {
-        _books = items.map((b) => ClubBook.fromJson(b as Map<String, dynamic>)).toList();
-        _loading = false;
-      });
-    } on ApiException catch (e) {
-      setState(() {
-        _error = e.message;
-        _loading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(clubHistoryProvider(widget.clubId));
+    final books = state.books;
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: AppBar(title: const Text('Book History', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
       body: SafeArea(
-        child: _loading
+        child: state.loading && books.isEmpty
             ? const Center(child: CircularProgressIndicator(color: AppColors.green))
-            : _error != null
-                ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.terra)))
-                : _books.isEmpty
+            : state.error != null && books.isEmpty
+                ? Center(child: Text(state.error!, style: const TextStyle(color: AppColors.terra)))
+                : books.isEmpty
                     ? const Center(
                         child: Padding(
                           padding: EdgeInsets.all(40),
@@ -81,12 +56,12 @@ class _ClubHistoryScreenState extends ConsumerState<ClubHistoryScreen> {
                       )
                     : RefreshIndicator(
                         color: AppColors.green,
-                        onRefresh: _load,
+                        onRefresh: () => ref.read(clubHistoryProvider(widget.clubId).notifier).load(),
                         child: ListView.builder(
                           padding: const EdgeInsets.fromLTRB(18, 12, 18, 40),
-                          itemCount: _books.length,
+                          itemCount: books.length,
                           itemBuilder: (context, i) {
-                            final book = _books[i];
+                            final book = books[i];
                             return Container(
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(12),

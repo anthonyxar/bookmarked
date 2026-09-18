@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ClubNote {
   final String id;
   final int chapter;
@@ -17,13 +19,16 @@ class ClubNote {
     required this.updatedAt,
   });
 
-  factory ClubNote.fromJson(Map<String, dynamic> json) => ClubNote(
-        id: json['id'] as String,
-        chapter: json['chapter'] as int,
-        body: json['body'] as String,
-        userId: json['user_id'] as String,
-        authorName: json['author_name'] as String,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-      );
+  factory ClubNote.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc, {required String authorName}) {
+    final data = doc.data()!;
+    return ClubNote(
+      id: doc.id,
+      chapter: data['chapter'] as int,
+      body: data['body'] as String,
+      userId: data['userId'] as String,
+      authorName: authorName,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
 }

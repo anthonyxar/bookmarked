@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ClubMember {
   final String userId;
   final String name;
@@ -26,17 +28,6 @@ class ClubMember {
     if (parts.isEmpty) return '?';
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }
-
-  // TODO(#14): see ClubBook.fromJson.
-  factory ClubMember.fromJson(Map<String, dynamic> json) => ClubMember(
-        userId: json['user_id'] as String,
-        name: json['name'] as String,
-        avatarUrl: json['avatar_url'] as String?,
-        role: json['role'] as String,
-        status: json['status'] as String,
-        currentChapter: json['current_chapter'] as int?,
-        finished: json['finished'] as bool?,
-      );
 }
 
 class ClubBook {
@@ -64,23 +55,21 @@ class ClubBook {
     required this.pickedAt,
   });
 
-  static DateTime? _parseDate(dynamic v) => v == null ? null : DateTime.parse(v as String);
-
-  // TODO(#14): still used by the not-yet-migrated club book/progress/notes
-  // REST calls (club_lists_provider.dart, club_history_screen.dart). Remove
-  // once those move to Firestore.
-  factory ClubBook.fromJson(Map<String, dynamic> json) => ClubBook(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        author: json['author'] as String,
-        totalChapters: json['total_chapters'] as int?,
-        coverColor: json['cover_color'] as String,
-        coverUrl: json['cover_url'] as String?,
-        isCurrent: json['is_current'] as bool,
-        startDate: _parseDate(json['start_date']),
-        endDate: _parseDate(json['end_date']),
-        pickedAt: DateTime.parse(json['picked_at'] as String),
-      );
+  factory ClubBook.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return ClubBook(
+      id: doc.id,
+      title: data['title'] as String,
+      author: data['author'] as String,
+      totalChapters: data['totalChapters'] as int?,
+      coverColor: data['coverColor'] as String? ?? '#3F5D4E',
+      coverUrl: data['coverUrl'] as String?,
+      isCurrent: data['isCurrent'] as bool? ?? false,
+      startDate: (data['startDate'] as Timestamp?)?.toDate(),
+      endDate: (data['endDate'] as Timestamp?)?.toDate(),
+      pickedAt: (data['pickedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
 }
 
 class Club {
@@ -114,19 +103,6 @@ class Club {
     }
     return null;
   }
-
-  // TODO(#14): see ClubBook.fromJson.
-  factory Club.fromJson(Map<String, dynamic> json) => Club(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String?,
-        imageUrl: json['image_url'] as String?,
-        ownerId: json['owner_id'] as String,
-        myRole: json['my_role'] as String,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        members: (json['members'] as List).map((m) => ClubMember.fromJson(m as Map<String, dynamic>)).toList(),
-        currentBook: json['current_book'] != null ? ClubBook.fromJson(json['current_book'] as Map<String, dynamic>) : null,
-      );
 }
 
 class ClubInvite {
