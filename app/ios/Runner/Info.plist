@@ -66,6 +66,13 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- Lets FCM deliver silently/in the background; APNs key upload in
+		     App Store Connect + Firebase console (issue #18) still has to
+		     happen out-of-band for delivery to actually work on iOS. -->
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

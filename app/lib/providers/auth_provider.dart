@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -52,6 +53,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   StreamSubscription<fb_auth.User?>? _authSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSub;
+  StreamSubscription<String>? _tokenRefreshSub;
+
+  // Guards against re-registering on every live profile snapshot (the
+  // listener re-fires on any field change, including our own token write) —
+  // and against running before the profile doc exists, which would race
+  // register()'s/signInWithGoogle's own (non-merge) writes to it.
+  String? _fcmRegisteredForUid;
 
   AuthNotifier(this._auth, this._db) : super(const AuthState()) {
     _authSub = _auth.authStateChanges().listen(_onAuthChanged);
@@ -60,13 +68,48 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void _onAuthChanged(fb_auth.User? user) {
     _profileSub?.cancel();
     if (user == null) {
+      _tokenRefreshSub?.cancel();
+      _fcmRegisteredForUid = null;
       state = const AuthState(initializing: false);
       return;
     }
     _profileSub = _db.collection('users').doc(user.uid).snapshots().listen((doc) {
       if (!doc.exists) return;
       state = state.copyWith(user: AppUser.fromFirestore(doc), initializing: false);
+      if (_fcmRegisteredForUid != user.uid) {
+        _fcmRegisteredForUid = user.uid;
+        _registerFcmToken(user.uid);
+      }
     });
+  }
+
+  /// Requests notification permission and stores this device's FCM token on
+  /// the user's profile (an array, since one account may have several
+  /// devices) — the invite/new-club-book Cloud Function triggers (#18) send
+  /// to every token there. Silently no-ops on denial/failure: push is a
+  /// nice-to-have, never a sign-in blocker.
+  Future<void> _registerFcmToken(String uid) async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission();
+      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+
+      final token = await messaging.getToken();
+      if (token != null) {
+        await _db.collection('users').doc(uid).update({
+          'fcmTokens': FieldValue.arrayUnion([token]),
+        });
+      }
+
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) {
+        _db.collection('users').doc(uid).update({
+          'fcmTokens': FieldValue.arrayUnion([newToken]),
+        });
+      });
+    } catch (_) {
+      // Notification permission/token registration failures shouldn't block sign-in.
+    }
   }
 
   String _friendlyError(fb_auth.FirebaseAuthException e) {

@@ -1,8 +1,9 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentDeleted } = require("firebase-functions/v2/firestore");
+const { onDocumentDeleted, onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 
 initializeApp();
 
@@ -171,5 +172,58 @@ exports.listClubReviews = onCall(async (request) => {
   return { items: items.slice(pageOffset, pageOffset + pageLimit), total };
 });
 
-// Cloud Functions still to add here:
-// - FCM push notification triggers (issue #18)
+// Notifies the invitee when their membership doc's status becomes "invited".
+// Uses onDocumentWritten (not onDocumentCreated) because inviteMember in
+// clubs_provider.dart does a `set` on memberships/{uid}, which overwrites an
+// existing doc (e.g. re-inviting someone who was previously removed/left) as
+// often as it creates a new one. See issue #18.
+exports.notifyClubInvite = onDocumentWritten("clubs/{clubId}/memberships/{uid}", async (event) => {
+  const before = event.data.before.exists ? event.data.before.data() : null;
+  const after = event.data.after.exists ? event.data.after.data() : null;
+  if (!after || after.status !== "invited" || before?.status === "invited") return;
+
+  const db = getFirestore();
+  const [clubSnap, userSnap] = await Promise.all([
+    db.collection("clubs").doc(event.params.clubId).get(),
+    db.collection("users").doc(event.params.uid).get(),
+  ]);
+  const tokens = userSnap.data()?.fcmTokens || [];
+  if (tokens.length === 0) return;
+
+  const clubName = clubSnap.data()?.name || "a club";
+  await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: {
+      title: "Club invite",
+      body: `You've been invited to join ${clubName}`,
+    },
+  });
+});
+
+// Notifies every active member when a club picks a new current book.
+// setCurrentBook in clubs_provider.dart always creates a fresh books doc
+// (auto-id), so unlike the invite trigger above, create-only is sufficient.
+exports.notifyClubNewBook = onDocumentCreated("clubs/{clubId}/books/{bookId}", async (event) => {
+  const book = event.data.data();
+  if (!book.isCurrent) return;
+
+  const db = getFirestore();
+  const clubId = event.params.clubId;
+  const [clubSnap, membersSnap] = await Promise.all([
+    db.collection("clubs").doc(clubId).get(),
+    db.collection("clubs").doc(clubId).collection("memberships").where("status", "==", "active").get(),
+  ]);
+  const clubName = clubSnap.data()?.name || "Your club";
+
+  const userSnaps = await Promise.all(membersSnap.docs.map((m) => db.collection("users").doc(m.id).get()));
+  const tokens = userSnaps.flatMap((u) => u.data()?.fcmTokens || []);
+  if (tokens.length === 0) return;
+
+  await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: {
+      title: clubName,
+      body: `New book pick: ${book.title} by ${book.author}`,
+    },
+  });
+});
