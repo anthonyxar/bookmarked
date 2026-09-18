@@ -349,11 +349,12 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
     }
   }
 
-  Future<bool> updateClub(String clubId, {String? name, String? description}) async {
+  Future<bool> updateClub(String clubId, {String? name, String? description, String? imageUrl}) async {
     try {
       final updates = <String, dynamic>{};
       if (name != null) updates['name'] = name;
       if (description != null) updates['description'] = description;
+      if (imageUrl != null) updates['imageUrl'] = imageUrl;
       if (updates.isEmpty) return true;
       await _db.collection('clubs').doc(clubId).update(updates);
       return true;

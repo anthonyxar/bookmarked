@@ -1,3 +1,4 @@
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,7 @@ import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
 import '../../services/api_client.dart';
 import '../../theme.dart';
+import '../../utils/image_validation.dart';
 import '../../widgets/club_image.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/date_field.dart';
@@ -23,14 +25,6 @@ import 'club_notes_screen.dart';
 import 'club_reviews_screen.dart';
 
 final _dateFmt = DateFormat('MMM d, yyyy');
-
-const _clubImageContentTypes = {
-  'jpg': 'image/jpeg',
-  'jpeg': 'image/jpeg',
-  'png': 'image/png',
-  'webp': 'image/webp',
-  'gif': 'image/gif',
-};
 
 class ClubDetailScreen extends ConsumerStatefulWidget {
   final String clubId;
@@ -49,22 +43,28 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, maxHeight: 1200);
     if (picked == null) return;
 
-    final extension = picked.name.split('.').last.toLowerCase();
-    final contentType = _clubImageContentTypes[extension] ?? 'image/jpeg';
+    final bytes = await picked.readAsBytes();
+    final validationError = imageValidationError(picked.name, bytes.length);
+    if (validationError != null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(validationError)));
+      return;
+    }
 
     setState(() => _uploadingImage = true);
     try {
-      final bytes = await picked.readAsBytes();
-      await ref.read(apiClientProvider).uploadFile(
-            '/clubs/${widget.clubId}/image',
-            field: 'file',
-            bytes: bytes,
-            filename: picked.name,
-            contentType: contentType,
-          );
-      _reload();
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      final storageRef = FirebaseStorage.instance.ref('clubImages/${widget.clubId}');
+      await storageRef.putData(bytes, SettableMetadata(contentType: contentTypeForFilename(picked.name)));
+      final url = await storageRef.getDownloadURL();
+      final ok = await ref.read(clubsProvider.notifier).updateClub(widget.clubId, imageUrl: url);
+      if (!mounted) return;
+      if (ok) {
+        _reload();
+      } else {
+        final error = ref.read(clubsProvider).error ?? 'Could not update the club image';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not upload that image')));
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }

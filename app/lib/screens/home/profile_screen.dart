@@ -8,14 +8,6 @@ import '../../theme.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/user_avatar.dart';
 
-const _avatarContentTypes = {
-  'jpg': 'image/jpeg',
-  'jpeg': 'image/jpeg',
-  'png': 'image/png',
-  'webp': 'image/webp',
-  'gif': 'image/gif',
-};
-
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -30,12 +22,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800);
     if (picked == null) return;
 
-    final extension = picked.name.split('.').last.toLowerCase();
-    final contentType = _avatarContentTypes[extension] ?? 'image/jpeg';
-
     setState(() => _uploadingAvatar = true);
     final bytes = await picked.readAsBytes();
-    final ok = await ref.read(authProvider.notifier).uploadAvatar(bytes: bytes, filename: picked.name, contentType: contentType);
+    final ok = await ref.read(authProvider.notifier).uploadAvatar(bytes: bytes, filename: picked.name);
     if (!mounted) return;
     setState(() => _uploadingAvatar = false);
 

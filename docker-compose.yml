@@ -69,6 +69,7 @@ services:
       - ./storage.rules:/workspace/storage.rules
       - ./functions:/workspace/functions
       - ./firestore-tests:/workspace/firestore-tests
+      - ./storage-tests:/workspace/storage-tests
       - firebase_emulator_data:/workspace/.firebase
       - firebase_emulator_export:/workspace/.emulator-data
     ports:

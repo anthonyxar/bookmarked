@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
 import '../services/api_client.dart';
+import '../utils/image_validation.dart';
 
 final firebaseAuthProvider = Provider<fb_auth.FirebaseAuth>((ref) => fb_auth.FirebaseAuth.instance);
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
@@ -170,12 +171,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _db.collection('users').doc(uid).update(updates);
   }
 
-  Future<bool> uploadAvatar({required Uint8List bytes, required String filename, required String contentType}) async {
+  Future<bool> uploadAvatar({required Uint8List bytes, required String filename}) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return false;
+    final validationError = imageValidationError(filename, bytes.length);
+    if (validationError != null) {
+      state = state.copyWith(error: validationError);
+      return false;
+    }
     try {
       final ref = FirebaseStorage.instance.ref('avatars/$uid');
-      await ref.putData(bytes, SettableMetadata(contentType: contentType));
+      await ref.putData(bytes, SettableMetadata(contentType: contentTypeForFilename(filename)));
       final url = await ref.getDownloadURL();
       await _db.collection('users').doc(uid).update({'avatarUrl': url});
       return true;
