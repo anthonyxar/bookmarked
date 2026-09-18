@@ -15,6 +15,8 @@ final clubDetailProvider = FutureProvider.family<Club, String>((ref, clubId) asy
 });
 
 final clubBingoProvider = FutureProvider.family<ClubBingo, String>((ref, clubId) async {
-  final json = await ref.watch(apiClientProvider).get('/clubs/$clubId/bingo');
-  return ClubBingo.fromJson(json as Map<String, dynamic>);
+  final db = ref.watch(firestoreProvider);
+  final uid = ref.watch(authProvider).user?.id;
+  if (uid == null) throw StateError('Not signed in');
+  return fetchOrCreateClubBingo(db, clubId, uid);
 });

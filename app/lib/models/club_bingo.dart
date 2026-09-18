@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ClubBingoSquare {
   final String id;
   final int position;
@@ -13,13 +15,16 @@ class ClubBingoSquare {
     required this.locked,
   });
 
-  factory ClubBingoSquare.fromJson(Map<String, dynamic> json) => ClubBingoSquare(
-        id: json['id'] as String,
-        position: json['position'] as int,
-        label: json['label'] as String,
-        completed: json['completed'] as bool,
-        locked: json['locked'] as bool,
-      );
+  factory ClubBingoSquare.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? const {};
+    return ClubBingoSquare(
+      id: doc.id,
+      position: data['position'] as int? ?? int.parse(doc.id),
+      label: data['label'] as String? ?? '',
+      completed: data['completed'] as bool? ?? false,
+      locked: data['locked'] as bool? ?? false,
+    );
+  }
 }
 
 class ClubBingoLeaderboardEntry {
@@ -36,14 +41,6 @@ class ClubBingoLeaderboardEntry {
     required this.totalCount,
     this.wonAt,
   });
-
-  factory ClubBingoLeaderboardEntry.fromJson(Map<String, dynamic> json) => ClubBingoLeaderboardEntry(
-        userId: json['user_id'] as String,
-        name: json['name'] as String,
-        completedCount: json['completed_count'] as int,
-        totalCount: json['total_count'] as int,
-        wonAt: json['won_at'] != null ? DateTime.parse(json['won_at'] as String) : null,
-      );
 }
 
 class ClubBingo {
@@ -53,11 +50,4 @@ class ClubBingo {
   ClubBingo({required this.squares, required this.leaderboard});
 
   int get completedCount => squares.where((s) => s.completed).length;
-
-  factory ClubBingo.fromJson(Map<String, dynamic> json) => ClubBingo(
-        squares: (json['squares'] as List).map((s) => ClubBingoSquare.fromJson(s as Map<String, dynamic>)).toList(),
-        leaderboard: (json['leaderboard'] as List)
-            .map((e) => ClubBingoLeaderboardEntry.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
 }

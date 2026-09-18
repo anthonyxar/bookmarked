@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/club_bingo.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/club_detail_provider.dart';
-import '../../services/api_client.dart';
+import '../../providers/clubs_provider.dart';
 import '../../theme.dart';
 import '../../widgets/bingo_cell_widget.dart';
 import '../../widgets/error_state.dart';
@@ -19,11 +19,13 @@ class ClubBingoScreen extends ConsumerStatefulWidget {
 
 class _ClubBingoScreenState extends ConsumerState<ClubBingoScreen> {
   Future<void> _toggle(String squareId, bool currentlyCompleted) async {
-    try {
-      await ref.read(apiClientProvider).patch('/clubs/${widget.clubId}/bingo/squares/$squareId', body: {'completed': !currentlyCompleted});
+    final ok = await ref.read(clubsProvider.notifier).toggleBingoSquare(widget.clubId, squareId, currentlyCompleted);
+    if (!mounted) return;
+    if (ok) {
       ref.invalidate(clubBingoProvider(widget.clubId));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } else {
+      final error = ref.read(clubsProvider).error ?? 'Could not update that square';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -39,7 +41,7 @@ class _ClubBingoScreenState extends ConsumerState<ClubBingoScreen> {
         child: bingoAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: AppColors.green)),
           error: (e, _) => ErrorState(
-            message: e is ApiException ? e.message : '$e',
+            message: '$e',
             onRetry: () => ref.refresh(clubBingoProvider(widget.clubId).future),
           ),
           data: (bingo) => _buildBody(bingo, myId),

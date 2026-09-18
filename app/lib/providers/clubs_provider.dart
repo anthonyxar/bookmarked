@@ -3,7 +3,19 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/club.dart';
+import '../models/club_bingo.dart';
 import 'auth_provider.dart';
+
+// Mirrors the retired backend's DEFAULT_LABELS (backend/app/routers/bingo.py)
+// — position 12 is the fixed FREE SPACE, pre-completed and locked.
+const _defaultClubBingoLabels = [
+  "Read a debut author", "Book under 250 pages", "Author you've never read", "One-word title", "Read outdoors",
+  "A retelling", "Book club pick", "Enemies to lovers", "A buddy read", "Published this year",
+  "Recommended by a friend", "A trope you avoid", "FREE SPACE", "Finish in one sitting", "Book over 500 pages",
+  "Audiobook", "Reread a favourite", "Cover you love", "Backlist title", "Translated work",
+  "Series finale", "Cozy mystery", "Non-fiction pick", "Banned book", "5-star surprise",
+];
+const _clubBingoFreeSpacePosition = 12;
 
 class ClubsState {
   final List<Club> clubs;
@@ -97,6 +109,79 @@ Future<Club> fetchClub(FirebaseFirestore db, String clubId, String myRole) async
     members: members,
     currentBook: currentBook,
   );
+}
+
+/// Reads the club bingo template (creating the 25-label default if it
+/// doesn't exist yet) and the signed-in member's own card (creating it —
+/// with the free space pre-completed and locked — from the template if
+/// this is their first visit), plus a leaderboard across every active
+/// member who already has a card. Mirrors `_get_or_create_member_bingo`.
+Future<ClubBingo> fetchOrCreateClubBingo(FirebaseFirestore db, String clubId, String uid) async {
+  final clubRef = db.collection('clubs').doc(clubId);
+  final templateRef = clubRef.collection('bingoTemplate');
+  final memberBingoRef = clubRef.collection('memberBingo');
+
+  var templateSnap = await templateRef.get();
+  List<String> templateLabels;
+  if (templateSnap.docs.isEmpty) {
+    final labels = List<String>.from(_defaultClubBingoLabels);
+    labels[_clubBingoFreeSpacePosition] = 'FREE SPACE';
+    final batch = db.batch();
+    for (var position = 0; position < labels.length; position++) {
+      batch.set(templateRef.doc('$position'), {'label': labels[position]});
+    }
+    await batch.commit();
+    templateLabels = labels;
+  } else {
+    templateLabels = List<String>.filled(templateSnap.docs.length, '');
+    for (final doc in templateSnap.docs) {
+      templateLabels[int.parse(doc.id)] = doc.data()['label'] as String? ?? '';
+    }
+  }
+
+  final myCardRef = memberBingoRef.doc(uid);
+  var mySquaresSnap = await myCardRef.collection('squares').get();
+  if (mySquaresSnap.docs.isEmpty) {
+    final batch = db.batch();
+    batch.set(myCardRef, {'wonAt': null}, SetOptions(merge: true));
+    for (var position = 0; position < templateLabels.length; position++) {
+      final isFree = position == _clubBingoFreeSpacePosition;
+      batch.set(myCardRef.collection('squares').doc('$position'), {
+        'position': position,
+        'label': templateLabels[position],
+        'completed': isFree,
+        'locked': isFree,
+      });
+    }
+    await batch.commit();
+    mySquaresSnap = await myCardRef.collection('squares').get();
+  }
+  final mySquares = mySquaresSnap.docs.map(ClubBingoSquare.fromFirestore).toList()
+    ..sort((a, b) => a.position.compareTo(b.position));
+
+  final activeMembers = await clubRef.collection('memberships').where('status', isEqualTo: 'active').get();
+  final leaderboard = <ClubBingoLeaderboardEntry>[];
+  for (final membership in activeMembers.docs) {
+    final cardSnap = await memberBingoRef.doc(membership.id).get();
+    if (!cardSnap.exists) continue;
+    final squaresSnap = await memberBingoRef.doc(membership.id).collection('squares').get();
+    if (squaresSnap.docs.isEmpty) continue;
+    final profile = (await db.collection('users').doc(membership.id).get()).data();
+    leaderboard.add(ClubBingoLeaderboardEntry(
+      userId: membership.id,
+      name: profile?['name'] as String? ?? 'Reader',
+      completedCount: squaresSnap.docs.where((d) => d.data()['completed'] == true).length,
+      totalCount: squaresSnap.docs.length,
+      wonAt: (cardSnap.data()?['wonAt'] as Timestamp?)?.toDate(),
+    ));
+  }
+  leaderboard.sort((a, b) {
+    final byCompleted = b.completedCount.compareTo(a.completedCount);
+    if (byCompleted != 0) return byCompleted;
+    return (a.wonAt ?? DateTime(9999)).compareTo(b.wonAt ?? DateTime(9999));
+  });
+
+  return ClubBingo(squares: mySquares, leaderboard: leaderboard);
 }
 
 class ClubsNotifier extends StateNotifier<ClubsState> {
@@ -414,6 +499,84 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
       }
       if (updates.isEmpty) return true;
       await book.reference.collection('progress').doc(_uid).set(updates, SetOptions(merge: true));
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+  }
+
+  /// Toggles one of the signed-in member's own bingo squares, then
+  /// recomputes their `wonAt` — mirrors `toggle_bingo_square`. Win
+  /// detection is deliberately client-trusted, same as personal bingo: see
+  /// the ADR's note on game-integrity logic not being worth a Cloud
+  /// Function for a small club of trusted people.
+  Future<bool> toggleBingoSquare(String clubId, String position, bool currentlyCompleted) async {
+    if (_uid == null) return false;
+    try {
+      final cardRef = _db.collection('clubs').doc(clubId).collection('memberBingo').doc(_uid);
+      final squareRef = cardRef.collection('squares').doc(position);
+      final data = (await squareRef.get()).data();
+      if (data == null) {
+        state = state.copyWith(error: 'Bingo square not found');
+        return false;
+      }
+      if (data['locked'] == true) {
+        state = state.copyWith(error: "This square can't be edited");
+        return false;
+      }
+      await squareRef.update({'completed': !currentlyCompleted});
+
+      final squares = await cardRef.collection('squares').get();
+      final allCompleted = squares.docs.every((d) => d.data()['completed'] == true);
+      if (allCompleted) {
+        final card = await cardRef.get();
+        if (card.data()?['wonAt'] == null) {
+          await cardRef.set({'wonAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+        }
+      } else {
+        await cardRef.set({'wonAt': null}, SetOptions(merge: true));
+      }
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _friendlyError(e));
+      return false;
+    }
+  }
+
+  /// Replaces the club's bingo template and resets every member's card,
+  /// including the caller's own — mirrors `set_bingo_template`. The next
+  /// read via [fetchOrCreateClubBingo] lazily recreates the caller's card
+  /// from the new template.
+  Future<bool> setBingoTemplate(String clubId, List<String> labels) async {
+    try {
+      final fixedLabels = List<String>.from(labels);
+      fixedLabels[_clubBingoFreeSpacePosition] = 'FREE SPACE';
+
+      final clubRef = _db.collection('clubs').doc(clubId);
+      final templateRef = clubRef.collection('bingoTemplate');
+      final memberBingoRef = clubRef.collection('memberBingo');
+
+      final existingTemplate = await templateRef.get();
+      final templateBatch = _db.batch();
+      for (final doc in existingTemplate.docs) {
+        templateBatch.delete(doc.reference);
+      }
+      for (var position = 0; position < fixedLabels.length; position++) {
+        templateBatch.set(templateRef.doc('$position'), {'label': fixedLabels[position]});
+      }
+      await templateBatch.commit();
+
+      final existingMemberCards = await memberBingoRef.get();
+      for (final cardDoc in existingMemberCards.docs) {
+        final squares = await cardDoc.reference.collection('squares').get();
+        final cardBatch = _db.batch();
+        for (final square in squares.docs) {
+          cardBatch.delete(square.reference);
+        }
+        cardBatch.delete(cardDoc.reference);
+        await cardBatch.commit();
+      }
       return true;
     } catch (e) {
       state = state.copyWith(error: _friendlyError(e));

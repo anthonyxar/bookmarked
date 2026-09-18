@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/club.dart';
 import '../../models/club_bingo.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
 import '../../services/api_client.dart';
@@ -104,14 +103,16 @@ class _ClubManageScreenState extends ConsumerState<ClubManageScreen> {
     if (!confirmed) return;
     final labels = _labelControllers.map((c) => c.text.trim().isEmpty ? 'FREE SPACE' : c.text.trim()).toList();
     setState(() => _savingTemplate = true);
-    try {
-      await ref.read(apiClientProvider).post('/clubs/${widget.clubId}/bingo/template', body: {'labels': labels});
-      ref.invalidate(clubBingoProvider(widget.clubId));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bingo card updated for everyone')));
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _savingTemplate = false);
+    final ok = await ref.read(clubsProvider.notifier).setBingoTemplate(widget.clubId, labels);
+    if (mounted) {
+      if (ok) {
+        ref.invalidate(clubBingoProvider(widget.clubId));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bingo card updated for everyone')));
+      } else {
+        final error = ref.read(clubsProvider).error ?? 'Could not update the bingo card';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      }
+      setState(() => _savingTemplate = false);
     }
   }
 
