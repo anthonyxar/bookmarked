@@ -1,0 +1,91 @@
+name: CI
+
+# Runs the same checks as AGENTS.md describes for local work: Flutter analyze and
+# tests, and the Firestore/Storage rules tests plus the Cloud Functions tests
+# against the Firebase emulators. Nothing here deploys or touches the real
+# Firebase project.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Match what local Docker development uses; bump these deliberately.
+  FLUTTER_VERSION: "3.44.0"
+  FIREBASE_TOOLS_VERSION: "15.30.1"
+
+jobs:
+  flutter:
+    name: Flutter analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      # test/moderation_test.dart reads ../firestore.rules, which the checkout
+      # provides one directory above app/.
+      - run: flutter test
+
+  firebase:
+    name: Rules and functions tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            firestore-tests/package-lock.json
+            storage-tests/package-lock.json
+            functions/package-lock.json
+
+      # The Firestore and Storage emulators run on the JVM.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - run: npm install -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+
+      # The emulator jars are large; keep them between runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ env.FIREBASE_TOOLS_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          npm ci --prefix firestore-tests
+          npm ci --prefix storage-tests
+          npm ci --prefix functions
+
+      - name: Firestore rules tests
+        run: firebase emulators:exec --only firestore --project demo-bookmarked "cd firestore-tests && npm test"
+
+      # storage.rules calls firestore.get(), so the Firestore emulator runs too.
+      - name: Storage rules tests
+        run: firebase emulators:exec --only firestore,storage --project demo-bookmarked "cd storage-tests && npm test"
+
+      - name: Cloud Functions tests
+        run: firebase emulators:exec --only firestore,auth,storage --project demo-bookmarked "cd functions && npm test"

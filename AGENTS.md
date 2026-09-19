@@ -32,6 +32,20 @@ through `docker compose`. Verify Flutter changes with:
 docker compose run --rm --no-deps app sh -c "flutter pub get && flutter analyze"
 ```
 
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every pull
+request: `flutter analyze`, `flutter test`, and the Firestore rules, Storage
+rules and Cloud Functions tests against the emulators. The Flutter and
+firebase-tools versions are pinned in the workflow's `env` (Flutter matches the
+Docker image); bump them deliberately. Run the same checks locally:
+
+```bash
+docker compose run --rm --no-deps app sh -c "flutter pub get && flutter analyze && flutter test"
+# each of these starts the emulators it needs (run from the repo root)
+docker compose run --rm --no-deps --entrypoint sh firebase -c "cd /workspace && firebase emulators:exec --only firestore --project demo-bookmarked 'cd firestore-tests && npm test'"
+docker compose run --rm --no-deps --entrypoint sh firebase -c "cd /workspace && firebase emulators:exec --only firestore,storage --project demo-bookmarked 'cd storage-tests && npm test'"
+docker compose run --rm --no-deps --entrypoint sh firebase -c "cd /workspace && firebase emulators:exec --only firestore,auth,storage --project demo-bookmarked 'cd functions && npm test'"
+```
+
 The `app` service is only a workspace (no dev server — there's no device in the
 container). Its `~/.android` is mounted from the gitignored `keystore/` dir so
 APKs are always signed with the same debug key; the SHA-1/SHA-256 of
