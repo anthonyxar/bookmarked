@@ -7,6 +7,25 @@ const genreOptions = [
   'Sci-Fi', 'Historical', 'Horror', 'Non-fiction', 'Dark Academia',
 ];
 
+/// The full set of [genreOptions] as toggleable chips.
+class GenrePicker extends StatelessWidget {
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  const GenrePicker({super.key, required this.selected, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: genreOptions
+          .map((g) => GenreChip(label: g, active: selected.contains(g), onTap: () => onToggle(g)))
+          .toList(),
+    );
+  }
+}
+
 class GenreChip extends StatelessWidget {
   final String label;
   final bool active;

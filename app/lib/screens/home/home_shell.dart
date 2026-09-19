@@ -1,22 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../clubs/clubs_list_screen.dart';
 import 'bingo_screen.dart';
 import 'challenges_screen.dart';
 import 'dashboard_screen.dart';
+import 'edit_profile_screen.dart';
 import 'profile_screen.dart';
 import 'wishlist_screen.dart';
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  ConsumerState<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // The flag can already be set by the time the shell exists (the profile
+    // snapshot landed after signInWithGoogle finished), so check once here as
+    // well as listening for it in build().
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowProfileSetup());
+  }
+
+  /// After a first-time Google sign-in, ask for the goal and genres the
+  /// register screen would have collected. Cleared before pushing so back,
+  /// skip and save all leave it done.
+  void _maybeShowProfileSetup() {
+    if (!mounted || !ref.read(authProvider).needsProfileSetup) return;
+    ref.read(authProvider.notifier).markProfileSetupDone();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen(firstTime: true)));
+  }
 
   static const _screens = [
     WishlistScreen(),
@@ -40,6 +61,10 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(authProvider.select((s) => s.needsProfileSetup), (_, needs) {
+      if (needs) _maybeShowProfileSetup();
+    });
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {

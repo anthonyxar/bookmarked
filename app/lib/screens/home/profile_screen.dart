@@ -7,6 +7,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../theme.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/user_avatar.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -63,8 +64,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 90),
           children: [
-            Text('Profile', style: AppTheme.serif.copyWith(fontSize: 20)),
-            const SizedBox(height: 18),
+            Row(
+              children: [
+                Text('Profile', style: AppTheme.serif.copyWith(fontSize: 20)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                  icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.green),
+                  label: const Text('Edit', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(14)),

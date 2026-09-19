@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/genre_chip.dart';
+import '../../widgets/goal_stepper.dart';
 import '../../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -107,36 +108,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     const SizedBox(height: 18),
                     const Text('READING GOAL THIS YEAR', style: labelCapsStyle),
                     const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _StepperButton(icon: Icons.remove, onTap: () => setState(() => _goal = (_goal - 5).clamp(5, 999))),
-                        Expanded(
-                          child: Center(
-                            child: RichText(
-                              text: TextSpan(children: [
-                                TextSpan(text: '$_goal ', style: GoogleFonts.spectral(fontSize: 26, color: AppColors.ink)),
-                                const TextSpan(text: 'books', style: TextStyle(fontSize: 12, color: AppColors.inkSoft)),
-                              ]),
-                            ),
-                          ),
-                        ),
-                        _StepperButton(icon: Icons.add, onTap: () => setState(() => _goal += 5)),
-                      ],
-                    ),
+                    GoalStepper(goal: _goal, onChanged: (v) => setState(() => _goal = v)),
                     const SizedBox(height: 18),
                     const Text('PICK A FEW GENRES YOU LOVE', style: labelCapsStyle),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: genreOptions
-                          .map((g) => GenreChip(
-                                label: g,
-                                active: _genres.contains(g),
-                                onTap: () => setState(() => _genres.contains(g) ? _genres.remove(g) : _genres.add(g)),
-                              ))
-                          .toList(),
+                    GenrePicker(
+                      selected: _genres,
+                      onToggle: (g) => setState(() => _genres.contains(g) ? _genres.remove(g) : _genres.add(g)),
                     ),
                   ],
                 ),
@@ -158,25 +136,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StepperButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _StepperButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.lineStrong)),
-        child: Icon(icon, size: 18, color: AppColors.green),
       ),
     );
   }

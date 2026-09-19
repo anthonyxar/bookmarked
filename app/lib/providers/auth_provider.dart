@@ -21,16 +21,29 @@ class AuthState {
   final bool initializing;
   final String? error;
 
-  const AuthState({this.user, this.loading = false, this.initializing = true, this.error});
+  /// True right after a first-time Google sign-in created the profile with
+  /// default goal/genres — the home shell asks for them once, then clears it.
+  final bool needsProfileSetup;
+
+  const AuthState({this.user, this.loading = false, this.initializing = true, this.error, this.needsProfileSetup = false});
 
   bool get isAuthenticated => user != null;
 
-  AuthState copyWith({AppUser? user, bool? loading, bool? initializing, String? error, bool clearError = false, bool clearUser = false}) {
+  AuthState copyWith({
+    AppUser? user,
+    bool? loading,
+    bool? initializing,
+    String? error,
+    bool? needsProfileSetup,
+    bool clearError = false,
+    bool clearUser = false,
+  }) {
     return AuthState(
       user: clearUser ? null : (user ?? this.user),
       loading: loading ?? this.loading,
       initializing: initializing ?? this.initializing,
       error: clearError ? null : (error ?? this.error),
+      needsProfileSetup: needsProfileSetup ?? this.needsProfileSetup,
     );
   }
 }
@@ -203,6 +216,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final userCredential = await _auth.signInWithCredential(credential);
       final uid = userCredential.user!.uid;
       final doc = _db.collection('users').doc(uid);
+      var created = false;
       if (!(await doc.get()).exists) {
         await doc.set({
           'name': userCredential.user!.displayName ?? 'Reader',
@@ -211,8 +225,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'genres': <String>[],
           'createdAt': FieldValue.serverTimestamp(),
         });
+        created = true;
       }
-      state = state.copyWith(loading: false);
+      // Google sign-up skips the register screen's goal/genre pickers, so a
+      // brand-new profile gets them prompted once (see HomeShell).
+      state = state.copyWith(loading: false, needsProfileSetup: created ? true : null);
       return true;
     } on fb_auth.FirebaseAuthException catch (e) {
       state = state.copyWith(loading: false, error: _friendlyError(e));
@@ -221,6 +238,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(loading: false, error: _describeError(e));
       return false;
     }
+  }
+
+  void markProfileSetupDone() {
+    if (state.needsProfileSetup) state = state.copyWith(needsProfileSetup: false);
   }
 
   Future<void> updateProfile({String? name, int? readingGoal, List<String>? genres}) async {
