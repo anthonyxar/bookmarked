@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/genre_chip.dart';
+import '../../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   final VoidCallback onSwitchToLogin;
@@ -68,6 +69,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ],
               ),
               const SizedBox(height: 28),
+              const GoogleSignInButton(),
+              const SizedBox(height: 14),
+              const OrDivider(label: 'OR SIGN UP WITH EMAIL'),
+              const SizedBox(height: 22),
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(

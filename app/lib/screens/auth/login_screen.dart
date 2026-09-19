@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../../widgets/app_icon.dart';
+import '../../widgets/google_sign_in_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   final VoidCallback onSwitchToRegister;
@@ -29,14 +30,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final ok = await ref.read(authProvider.notifier).login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
     if (!ok && mounted) {
       final error = ref.read(authProvider).error ?? 'Something went wrong';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-    }
-  }
-
-  Future<void> _continueWithGoogle() async {
-    final ok = await ref.read(authProvider.notifier).signInWithGoogle();
-    final error = ref.read(authProvider).error;
-    if (!ok && error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
@@ -100,22 +93,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     : const Text('Log In'),
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Expanded(child: Divider(color: AppColors.line)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text('OR', style: TextStyle(fontSize: 11, color: AppColors.inkSoft)),
-                  ),
-                  const Expanded(child: Divider(color: AppColors.line)),
-                ],
-              ),
+              const OrDivider(),
               const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: auth.loading ? null : _continueWithGoogle,
-                icon: const Icon(Icons.g_mobiledata, size: 22),
-                label: const Text('Continue with Google'),
-              ),
+              const GoogleSignInButton(),
               const SizedBox(height: 14),
               Center(
                 child: TextButton(
