@@ -20,7 +20,8 @@ through a manual `firebase deploy --project bookmarked-87332` (interactive
 login, run from the `firebase` service). Work that needs Firebase console
 access (providers, billing, App Check, deploys) — flag it rather than
 attempting it blind. The project has a Firebase spend cap that pauses services
-when exceeded, so the ADR's "no hard cap" statement is out of date.
+when exceeded (a cap of zero trips on the first cent — see the spend-cap
+correction in the ADR).
 
 ## Tooling — Docker only
 
