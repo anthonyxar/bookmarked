@@ -8,6 +8,7 @@ import '../../providers/bracket_provider.dart';
 import '../../providers/books_provider.dart';
 import '../../providers/year_provider.dart';
 import '../../theme.dart';
+import '../../widgets/club_book_cover.dart';
 import '../../widgets/error_state.dart';
 import '../../widgets/star_rating.dart';
 
@@ -60,10 +61,9 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
           separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.line),
           itemBuilder: (context, i) {
             final b = books[i];
-            final color = Color(int.parse(b.coverColor.replaceFirst('#', '0xFF')));
             return ListTile(
               onTap: () => Navigator.pop(context, b),
-              leading: Container(width: 32, height: 46, color: color),
+              leading: ClubBookCover(title: b.title, coverColor: b.coverColor, coverUrl: b.coverUrl, width: 32, height: 46),
               title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(b.author, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
@@ -217,11 +217,20 @@ class _MonthTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Color(int.parse(book.coverColor.replaceFirst('#', '0xFF'))),
-                              borderRadius: BorderRadius.circular(4),
+                          // Centre a book-shaped (2:3) cover in the space left
+                          // over, rather than stretching one across the tile.
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: 2 / 3,
+                              child: LayoutBuilder(
+                                builder: (context, box) => ClubBookCover(
+                                  title: book.title,
+                                  coverColor: book.coverColor,
+                                  coverUrl: book.coverUrl,
+                                  width: box.maxWidth,
+                                  height: box.maxHeight,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -281,14 +290,7 @@ class _MatchPick extends StatelessWidget {
         color: isWinner ? AppColors.greenSoft : Colors.transparent,
         child: Row(
           children: [
-            Container(
-              width: 24,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Color(int.parse(book.coverColor.replaceFirst('#', '0xFF'))),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+            ClubBookCover(title: book.title, coverColor: book.coverColor, coverUrl: book.coverUrl, width: 24, height: 34),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -337,14 +339,12 @@ class _ChampionCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text('${DateTime.now().year} CHAMPION', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.gold)),
           const SizedBox(height: 10),
-          Container(
-            width: 64,
-            height: 92,
+          DecoratedBox(
             decoration: BoxDecoration(
-              color: Color(int.parse(book.coverColor.replaceFirst('#', '0xFF'))),
               borderRadius: BorderRadius.circular(6),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 10, offset: const Offset(0, 4))],
             ),
+            child: ClubBookCover(title: book.title, coverColor: book.coverColor, coverUrl: book.coverUrl, width: 64, height: 92),
           ),
           const SizedBox(height: 10),
           Text(book.title, style: AppTheme.serif.copyWith(fontSize: 16), textAlign: TextAlign.center),
