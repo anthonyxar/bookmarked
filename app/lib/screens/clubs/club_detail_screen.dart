@@ -205,6 +205,37 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
     }
   }
 
+  /// The club logo beside the name in the app bar. Managers tap it to change
+  /// the image (it used to be a large logo in the page body).
+  Widget _appBarLogo(Club club) {
+    const size = 32.0;
+    return GestureDetector(
+      onTap: club.canManage && !_uploadingImage ? _pickClubImage : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _uploadingImage
+              ? const SizedBox(
+                  width: size,
+                  height: size,
+                  child: Padding(padding: EdgeInsets.all(6), child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green)),
+                )
+              : ClubImage(imageUrl: club.imageUrl, name: club.name, size: size, borderRadius: 9),
+          if (club.canManage)
+            Positioned(
+              bottom: -3,
+              right: -3,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+                child: const Icon(Icons.edit, size: 8, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final myId = ref.watch(authProvider).user?.id;
@@ -214,7 +245,23 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: AppBar(
-        title: Text(club?.name ?? 'Book Club', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (club != null) ...[
+              _appBarLogo(club),
+              const SizedBox(width: 10),
+            ],
+            Flexible(
+              child: Text(
+                club?.name ?? 'Book Club',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
         actions: [
           if (club != null && club.canManage)
             IconButton(
@@ -261,34 +308,6 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: GestureDetector(
-                onTap: club.canManage && !_uploadingImage ? _pickClubImage : null,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _uploadingImage
-                        ? const SizedBox(
-                            width: 84,
-                            height: 84,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
-                          )
-                        : ClubImage(imageUrl: club.imageUrl, name: club.name, size: 84),
-                    if (club.canManage)
-                      Positioned(
-                        bottom: -2,
-                        right: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
-                          child: const Icon(Icons.edit, size: 12, color: Colors.white),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             if (club.description != null && club.description!.isNotEmpty) ...[
               Text(club.description!, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft, height: 1.5)),
               const SizedBox(height: 16),
