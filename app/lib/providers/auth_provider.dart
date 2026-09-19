@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart' show FirebaseFunctionsException;
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user.dart';
+import '../utils/app_functions.dart';
 import '../utils/image_validation.dart';
 
 final firebaseAuthProvider = Provider<fb_auth.FirebaseAuth>((ref) => fb_auth.FirebaseAuth.instance);
@@ -159,6 +161,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return 'Password must be at least 6 characters';
       case 'invalid-email':
         return 'That email address looks invalid';
+      case 'user-mismatch':
+        return "That isn't the account you're signed in with";
+      case 'requires-recent-login':
+        return 'Please sign in again and retry';
       default:
         return e.message ?? 'Something went wrong';
     }
@@ -308,6 +314,67 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } catch (_) {
       state = state.copyWith(error: 'Could not upload that image');
+      return false;
+    }
+  }
+
+  /// How the signed-in user proves who they are — 'google', 'password', or null
+  /// for anything else. Decides what account deletion asks them to re-enter.
+  String? get signInMethod {
+    final providers = _auth.currentUser?.providerData.map((p) => p.providerId).toSet() ?? const <String>{};
+    if (providers.contains('google.com')) return 'google';
+    if (providers.contains('password')) return 'password';
+    return null;
+  }
+
+  /// Permanently deletes the account and all its data (see the
+  /// `deleteMyAccount` Cloud Function, issue #32). It re-authenticates first —
+  /// the Google picker, or [password] for email accounts — because the server
+  /// only accepts a recent sign-in. Returns false without an error if the user
+  /// backed out of the Google picker; on success the local session is cleared,
+  /// which returns the app to the welcome screen.
+  Future<bool> deleteAccount({String? password}) async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      switch (signInMethod) {
+        case 'google':
+          final googleUser = await _googleSignIn.signIn();
+          if (googleUser == null) {
+            state = state.copyWith(loading: false);
+            return false;
+          }
+          final googleAuth = await googleUser.authentication;
+          await user.reauthenticateWithCredential(
+            fb_auth.GoogleAuthProvider.credential(accessToken: googleAuth.accessToken, idToken: googleAuth.idToken),
+          );
+        case 'password':
+          await user.reauthenticateWithCredential(
+            fb_auth.EmailAuthProvider.credential(email: user.email ?? '', password: password ?? ''),
+          );
+        default:
+          break; // Nothing to re-enter; the server still insists on a recent sign-in.
+      }
+
+      await user.getIdToken(true); // pick up the fresh sign-in time
+      await appFunctions.httpsCallable('deleteMyAccount').call();
+
+      // The server has deleted the Auth user; drop the local session.
+      try {
+        await _googleSignInInstance?.signOut();
+      } catch (_) {}
+      await _auth.signOut();
+      state = state.copyWith(loading: false);
+      return true;
+    } on fb_auth.FirebaseAuthException catch (e) {
+      state = state.copyWith(loading: false, error: _friendlyError(e));
+      return false;
+    } on FirebaseFunctionsException catch (e) {
+      state = state.copyWith(loading: false, error: e.message ?? 'Could not delete your account');
+      return false;
+    } catch (e) {
+      state = state.copyWith(loading: false, error: _describeError(e));
       return false;
     }
   }

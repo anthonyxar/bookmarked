@@ -2,10 +2,12 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getStorage } = require("firebase-admin/storage");
 const logger = require("firebase-functions/logger");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentDeleted, onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { deleteAccountData, deleteClubImage, isRecentSignIn } = require("./account-deletion");
 
 // Same region as the Firestore database (australia-southeast1): Firestore
 // triggers must be co-located with it, and it keeps the callables' reads local.
@@ -59,6 +61,42 @@ exports.cleanupClubSubcollections = onDocumentDeleted("clubs/{clubId}", async (e
   const clubRef = db.collection("clubs").doc(event.params.clubId);
   const subcollections = await clubRef.listCollections();
   await Promise.all(subcollections.map((col) => db.recursiveDelete(col)));
+
+  // The club's image in Storage would otherwise be orphaned. Hygiene only, so
+  // a failure here is logged rather than thrown.
+  try {
+    await deleteClubImage(getStorage().bucket(), event.params.clubId);
+  } catch (e) {
+    logger.warn("cleanupClubSubcollections: could not delete the club image", { clubId: event.params.clubId, error: e.message });
+  }
+});
+
+// Permanently deletes the caller's account and everything tied to it: profile
+// and personal data, avatar, their traces in every club (clubs they own pass
+// to another member, or are deleted if nobody else is active), and finally the
+// Auth user. Requires a recent sign-in, which the app gets by re-authenticating
+// just before calling this. See account-deletion.js and issue #32.
+exports.deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
+  }
+  if (!isRecentSignIn(request.auth.token.auth_time)) {
+    throw new HttpsError("failed-precondition", "Please sign in again to confirm it's you, then retry.");
+  }
+
+  try {
+    const summary = await deleteAccountData({
+      db: getFirestore(),
+      bucket: getStorage().bucket(),
+      auth: getAuth(),
+      uid: request.auth.uid,
+    });
+    logger.info("deleteMyAccount: done", summary);
+  } catch (e) {
+    logger.error("deleteMyAccount: failed", { error: e.message });
+    throw new HttpsError("internal", "Could not delete your account. Please try again.");
+  }
+  return { deleted: true };
 });
 
 // Builds the club reviews list by matching every active member's personal

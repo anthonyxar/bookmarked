@@ -63,6 +63,12 @@ backend: Auth (9099), Firestore (8080), Storage
   nothing private goes on it — FCM push tokens live in
   `users/{uid}/fcmTokens/{token}` (owner-only; the notify functions read them
   with the Admin SDK).
+- Account deletion (`deleteMyAccount`, `functions/account-deletion.js`) removes
+  everything tied to a user. **If you add user data anywhere new — a
+  collection, a club subcollection, a Storage path — extend that module and its
+  test in the same change, or deleted accounts will leave it behind.** Run the
+  functions tests with
+  `docker compose run --rm --no-deps --entrypoint sh firebase -c "cd /workspace && firebase emulators:exec --only firestore,auth,storage --project demo-bookmarked 'cd functions && npm test'"`.
 - Cloud Functions are for what Firestore Security Rules genuinely can't do
   (recursive subcollection delete, admin-only email lookup, FCM triggers) —
   not a general home for business logic. See the ADR's "Consequences"

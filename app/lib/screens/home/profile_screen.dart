@@ -54,6 +54,73 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  /// Asks email/password users to re-enter their password before deletion.
+  Future<String?> _askPassword() async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm your password'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Your password'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.terra),
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return (password == null || password.isEmpty) ? null : password;
+  }
+
+  Future<void> _deleteAccount() async {
+    final auth = ref.read(authProvider.notifier);
+    final confirmed = await confirmDialog(
+      context,
+      title: 'Delete your account?',
+      message: "This permanently deletes your profile, shelf, reviews, reading goals, bingo cards and bracket picks, "
+          "and removes you from your clubs. If you own a club, it passes to another member (an admin first), and a "
+          "club with nobody else in it is deleted. This can't be undone.",
+      confirmLabel: 'Delete Account',
+    );
+    if (!confirmed || !mounted) return;
+
+    String? password;
+    if (auth.signInMethod == 'password') {
+      password = await _askPassword();
+      if (password == null || !mounted) return;
+    }
+
+    // Blocks the screen while re-authenticating and deleting. Popped through a
+    // saved navigator: on success the app returns to the welcome screen and
+    // this page is gone, but the dialog would still be on the root navigator.
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator(color: AppColors.green)),
+      ),
+    );
+    final ok = await auth.deleteAccount(password: password);
+    rootNavigator.pop();
+
+    if (!ok && mounted) {
+      final error = ref.read(authProvider).error;
+      if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
@@ -191,6 +258,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(border: Border.all(color: AppColors.lineStrong), borderRadius: BorderRadius.circular(10)),
                 child: const Text('Switch Reader', style: TextStyle(color: AppColors.terra, fontWeight: FontWeight.w700, fontSize: 12.5)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton(
+                onPressed: _deleteAccount,
+                child: const Text('Delete account', style: TextStyle(color: AppColors.inkSoft, fontSize: 12)),
               ),
             ),
           ],
