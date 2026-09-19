@@ -69,6 +69,11 @@ backend: Auth (9099), Firestore (8080), Storage
   test in the same change, or deleted accounts will leave it behind.** Run the
   functions tests with
   `docker compose run --rm --no-deps --entrypoint sh firebase -c "cd /workspace && firebase emulators:exec --only firestore,auth,storage --project demo-bookmarked 'cd functions && npm test'"`.
+- Moderation (`reports` collection, `users/{uid}/blocks`, `resolveReport`,
+  `functions/moderation.js`) is described in `docs/moderation.md`. New kinds of
+  user-generated content need a report path and, if others can see it, must
+  respect blocks. `test/moderation_test.dart` pins the client's report fields
+  to `firestore.rules`, which is why the app container mounts that file.
 - Cloud Functions are for what Firestore Security Rules genuinely can't do
   (recursive subcollection delete, admin-only email lookup, FCM triggers) —
   not a general home for business logic. See the ADR's "Consequences"

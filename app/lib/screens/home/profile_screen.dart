@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/clubs_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/moderation_provider.dart';
 import '../../theme.dart';
 import '../../widgets/club_image.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -14,6 +15,7 @@ import '../../widgets/user_avatar.dart';
 import '../clubs/club_detail_screen.dart';
 import 'edit_profile_screen.dart';
 import 'edit_top_books_screen.dart';
+import 'moderation_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -228,6 +230,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 14),
             const _MyClubsCard(),
             const SizedBox(height: 14),
+            const _BlockedUsersCard(),
+            if (ref.watch(isModeratorProvider).valueOrNull == true) ...[
+              const SizedBox(height: 14),
+              _ProfileCard(
+                title: 'MODERATION',
+                actionLabel: 'Open',
+                onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ModerationScreen())),
+                child: const Text('Review reports from club members.', style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft)),
+              ),
+            ],
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(14)),
@@ -356,6 +369,56 @@ class _MyClubsCard extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ],
+            ),
+    );
+  }
+}
+
+/// People the user has blocked, with an Unblock button. Names are looked up
+/// from their profiles (a block stores only the uid); an account that has been
+/// deleted shows as "Former reader".
+class _BlockedUsersCard extends ConsumerWidget {
+  const _BlockedUsersCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final blocked = (ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{}).toList()..sort();
+
+    return _ProfileCard(
+      title: 'BLOCKED',
+      child: blocked.isEmpty
+          ? const Text(
+              "You haven't blocked anyone. You can block someone from their note or review, or by tapping their name in a club.",
+              style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.4),
+            )
+          : Column(
+              children: [
+                for (final uid in blocked)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          ref.watch(userNameProvider(uid)).valueOrNull ?? 'Former reader',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          try {
+                            await ref.read(moderationServiceProvider).unblock(uid);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not unblock them. Try again.')));
+                            }
+                          }
+                        },
+                        child: const Text('Unblock', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700, fontSize: 12)),
+                      ),
+                    ],
+                  ),
               ],
             ),
     );

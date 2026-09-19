@@ -36,6 +36,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
     }
 
+    // Has `blocker` blocked `blocked`? exists() reads with system privileges,
+    // so this works even though only the blocker can read their own block
+    // list. See issue #34.
+    function hasBlocked(blocker, blocked) {
+      return exists(/databases/$(database)/documents/users/$(blocker)/blocks/$(blocked));
+    }
+
     // --- Personal collections: owner-only, no cross-user access at all ----
 
     match /users/{uid} {
@@ -59,6 +66,18 @@ service cloud.firestore {
       // issue #38.
       match /fcmTokens/{token} {
         allow read, write: if isSignedIn() && uid == request.auth.uid;
+      }
+
+      // The users this user has blocked, keyed by their uid. Deliberately
+      // nothing but a timestamp: no name is copied here, so a deleted account
+      // leaves no personal data behind in other people's block lists. Owner-
+      // only; the client hides the blocked user's notes/reviews, listClubReviews
+      // skips them, and the invite rules below refuse invites from them.
+      match /blocks/{blockedId} {
+        allow read, delete: if isSignedIn() && uid == request.auth.uid;
+        allow create, update: if isSignedIn() && uid == request.auth.uid && blockedId != uid &&
+          request.resource.data.keys().hasOnly(['createdAt']) &&
+          request.resource.data.createdAt == request.time;
       }
 
       match /books/{bookId} {
@@ -95,6 +114,33 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
+    // User reports of club content (issue #34). Any active member of the club
+    // in question can file one; the doc id pins it to (reporter, type, target)
+    // so the same person can't spam duplicates. Nobody can read them from the
+    // app except admins (custom claim `admin`), and every change after filing
+    // goes through the resolveReport function, which uses the Admin SDK.
+    match /reports/{reportId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['reporterId', 'type', 'targetId', 'clubId', 'targetUserId',
+          'bookId', 'reason', 'details', 'snapshot', 'status', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['reporterId', 'type', 'targetId', 'clubId', 'targetUserId',
+          'bookId', 'reason', 'details', 'snapshot', 'status', 'createdAt']) &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.type in ['note', 'review', 'member', 'club'] &&
+        reportId == request.auth.uid + '__' + request.resource.data.type + '__' + request.resource.data.targetId &&
+        request.resource.data.reason in ['spam', 'abuse', 'inappropriate', 'impersonation', 'other'] &&
+        request.resource.data.details is string && request.resource.data.details.size() <= 500 &&
+        request.resource.data.snapshot is string && request.resource.data.snapshot.size() <= 1000 &&
+        (request.resource.data.targetUserId == null ||
+          (request.resource.data.targetUserId is string && request.resource.data.targetUserId != request.auth.uid)) &&
+        (request.resource.data.bookId == null || request.resource.data.bookId is string) &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt == request.time &&
+        isActiveMember(request.resource.data.clubId);
+      allow read: if isSignedIn() && request.auth.token.admin == true;
+      allow update, delete: if false;
+    }
+
     match /clubs/{clubId} {
       allow read: if isActiveMember(clubId);
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
@@ -114,8 +160,9 @@ service cloud.firestore {
           // Owner/admin inviting someone new. The role is capped at
           // member/admin: an 'owner'-role row can never be changed or removed
           // by the update rules below, so it must not be creatable by invite.
+          // Not someone who has blocked the inviter (issue #34).
           (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && request.resource.data.status == 'invited' &&
-            request.resource.data.role in ['member', 'admin'])
+            request.resource.data.role in ['member', 'admin'] && !hasBlocked(memberId, request.auth.uid))
         );
 
         allow update: if isSignedIn() && (
@@ -132,7 +179,9 @@ service cloud.firestore {
           (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && resource.data.role != 'owner' &&
             request.resource.data.role in ['admin', 'member'] &&
             (request.resource.data.status == resource.data.status ||
-              request.resource.data.status in ['invited', 'removed'])) ||
+              request.resource.data.status in ['invited', 'removed']) &&
+            // Re-inviting someone who has blocked you isn't allowed either.
+            (request.resource.data.status != 'invited' || !hasBlocked(memberId, request.auth.uid))) ||
           // Ownership transfer: only the current owner can grant 'owner' or
           // 'admin' on an active membership (covers both halves of the
           // transfer batch — the new owner's row and the old owner's own).

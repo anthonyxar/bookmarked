@@ -63,6 +63,9 @@ services:
       # match it. Mounting the directory (not the file) means Docker never
       # creates an empty debug.keystore/ folder if the key is missing.
       - ./keystore:/root/.android
+      # test/moderation_test.dart checks the client against the rules file
+      # (one directory above the app, as on the host).
+      - ./firestore.rules:/firestore.rules:ro
     command: sh -c "flutter pub get && tail -f /dev/null"
 
 volumes:

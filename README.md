@@ -53,6 +53,8 @@ iOS needs Xcode on a real Mac — this Linux-based Docker image can't build it.
 - `listClubReviews` — builds a club's reviews list across members' personal
   book collections (needs admin-privileged reads across users).
 - `notifyClubInvite` / `notifyClubNewBook` — FCM push notification triggers.
+- `resolveReport` — moderator-only (custom claim `admin`): applies a decision
+  to a user-filed report. See `docs/moderation.md`.
 - `deleteMyAccount` — permanently deletes the caller's account and data
   (profile, avatar, their traces in every club; clubs they own pass to another
   member or are deleted if nobody else is active). Requires a recent sign-in.

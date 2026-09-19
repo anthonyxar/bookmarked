@@ -9,7 +9,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, collectionGroup } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, collectionGroup, serverTimestamp } from 'firebase/firestore';
 
 let testEnv;
 
@@ -70,6 +70,9 @@ before(async () => {
     await setDoc(doc(db, 'clubs/club2/memberships/dave'), {
       userId: 'dave', role: 'member', status: 'active', invitedById: 'alice',
     });
+
+    // frank has blocked alice (issue #34), so alice can't invite him anywhere.
+    await setDoc(doc(db, 'users/frank/blocks/alice'), { createdAt: new Date() });
   });
 });
 
@@ -255,4 +258,86 @@ test('club invites: an owner can invite someone as a member or an admin', async 
   await assertSucceeds(setDoc(doc(asAlice(), 'clubs/club2/memberships/bob'), {
     userId: 'bob', role: 'admin', status: 'invited', invitedById: 'alice',
   }));
+});
+
+// --- Issue #34: blocking, reporting, and the admin read path ---------------
+
+function asAdmin() { return testEnv.authenticatedContext('root', { admin: true }).firestore(); }
+
+test('blocks: a user can block, read and unblock someone in their own block list', async () => {
+  await assertSucceeds(setDoc(doc(asCarol(), 'users/carol/blocks/dave'), { createdAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(doc(asCarol(), 'users/carol/blocks/dave')));
+  await assertSucceeds(getDocs(collection(asCarol(), 'users/carol/blocks')));
+  await assertSucceeds(deleteDoc(doc(asCarol(), 'users/carol/blocks/dave')));
+});
+
+test('blocks: nobody else can read or change a user\'s block list', async () => {
+  await assertFails(getDoc(doc(asBob(), 'users/frank/blocks/alice')));
+  await assertFails(getDocs(collection(asBob(), 'users/frank/blocks')));
+  await assertFails(setDoc(doc(asBob(), 'users/frank/blocks/bob'), { createdAt: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(asBob(), 'users/frank/blocks/alice')));
+});
+
+test('blocks: you cannot block yourself, and a block carries nothing but its timestamp', async () => {
+  await assertFails(setDoc(doc(asCarol(), 'users/carol/blocks/carol'), { createdAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(asCarol(), 'users/carol/blocks/dave'), { createdAt: serverTimestamp(), name: 'Dave' }));
+  await assertFails(setDoc(doc(asCarol(), 'users/carol/blocks/dave'), {}));
+});
+
+test('club invites: someone who blocked you cannot be invited by you', async () => {
+  await assertFails(setDoc(doc(asAlice(), 'clubs/club2/memberships/frank'), {
+    userId: 'frank', role: 'member', status: 'invited', invitedById: 'alice',
+  }));
+  // A control with no block in the way still works.
+  await assertSucceeds(setDoc(doc(asAlice(), 'clubs/club2/memberships/gina'), {
+    userId: 'gina', role: 'member', status: 'invited', invitedById: 'alice',
+  }));
+});
+
+const validReport = (overrides = {}) => ({
+  reporterId: 'bob', type: 'note', targetId: 'note1', clubId: 'club1', targetUserId: 'alice', bookId: 'book1',
+  reason: 'spam', details: '', snapshot: "Alice's note", status: 'open', createdAt: serverTimestamp(), ...overrides,
+});
+
+test('reports: an active club member can report content in their club', async () => {
+  await assertSucceeds(setDoc(doc(asBob(), 'reports/bob__note__note1'), validReport()));
+});
+
+test('reports: the same person cannot file the same report twice', async () => {
+  await assertSucceeds(setDoc(doc(asBob(), 'reports/bob__member__alice'), validReport({ type: 'member', targetId: 'alice' })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__member__alice'), validReport({ type: 'member', targetId: 'alice' })));
+});
+
+test('reports: you cannot file one as someone else, or with a mismatched id', async () => {
+  await assertFails(setDoc(doc(asBob(), 'reports/alice__note__note1'), validReport({ reporterId: 'alice' })));
+  await assertFails(setDoc(doc(asBob(), 'reports/whatever'), validReport()));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__other'), validReport()));
+});
+
+test('reports: a non-member cannot report content in a club they are not in', async () => {
+  await assertFails(setDoc(doc(asCarol(), 'reports/carol__note__note1'), validReport({ reporterId: 'carol' })));
+});
+
+test('reports: you cannot report yourself', async () => {
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__member__bob'), validReport({ type: 'member', targetId: 'bob', targetUserId: 'bob' })));
+});
+
+test('reports: an unknown type or reason, oversize text, extra fields or a pre-set status are rejected', async () => {
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__weird__note1'), validReport({ type: 'weird', targetId: 'note1' })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__n-reason'), validReport({ targetId: 'n-reason', reason: 'because' })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__n-long'), validReport({ targetId: 'n-long', details: 'x'.repeat(501) })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__n-snap'), validReport({ targetId: 'n-snap', snapshot: 'x'.repeat(1001) })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__n-extra'), validReport({ targetId: 'n-extra', resolvedBy: 'bob' })));
+  await assertFails(setDoc(doc(asBob(), 'reports/bob__note__n-status'), validReport({ targetId: 'n-status', status: 'resolved' })));
+});
+
+test('reports: only an admin can read them, and nobody can edit or delete one from the client', async () => {
+  await assertSucceeds(setDoc(doc(asBob(), 'reports/bob__club__club1'), validReport({ type: 'club', targetId: 'club1', targetUserId: null, bookId: null })));
+  await assertFails(getDoc(doc(asBob(), 'reports/bob__club__club1'))); // not even the reporter
+  await assertFails(getDoc(doc(asAlice(), 'reports/bob__club__club1')));
+  await assertFails(getDocs(collection(asBob(), 'reports')));
+  await assertSucceeds(getDoc(doc(asAdmin(), 'reports/bob__club__club1')));
+  await assertSucceeds(getDocs(query(collection(asAdmin(), 'reports'), where('status', '==', 'open'))));
+  await assertFails(updateDoc(doc(asAdmin(), 'reports/bob__club__club1'), { status: 'resolved' }));
+  await assertFails(deleteDoc(doc(asBob(), 'reports/bob__club__club1')));
 });

@@ -8,12 +8,15 @@ import '../../models/club.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/club_detail_provider.dart';
 import '../../providers/clubs_provider.dart';
+import '../../providers/moderation_provider.dart';
 import '../../theme.dart';
 import '../../utils/image_validation.dart';
 import '../../widgets/club_image.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/content_menu.dart';
 import '../../widgets/date_field.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/report_dialog.dart';
 import '../../widgets/switch_tile.dart';
 import '../../widgets/user_avatar.dart';
 import 'club_bingo_screen.dart';
@@ -278,8 +281,20 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
               onSelected: (value) {
                 if (value == 'leave') _leaveClub();
                 if (value == 'delete') _deleteClub();
+                if (value == 'report') {
+                  showReportDialog(
+                    context,
+                    ref,
+                    type: ReportType.club,
+                    subject: 'this club',
+                    clubId: club.id,
+                    targetId: club.id,
+                    snapshot: [club.name, if ((club.description ?? '').isNotEmpty) club.description!].join('\n'),
+                  );
+                }
               },
               itemBuilder: (context) => [
+                if (club.myRole != 'owner') const PopupMenuItem(value: 'report', child: Text('Report club')),
                 if (club.myRole == 'owner')
                   const PopupMenuItem(value: 'delete', child: Text('Delete club', style: TextStyle(color: AppColors.terra)))
                 else
@@ -328,19 +343,41 @@ class _ClubDetailScreenState extends ConsumerState<ClubDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: club.activeMembers
-                  .map((m) => Container(
-                        padding: const EdgeInsets.only(left: 4, right: 10, top: 4, bottom: 4),
-                        decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            UserAvatar(avatarUrl: m.avatarUrl, initials: m.initials, size: 20),
-                            const SizedBox(width: 6),
-                            Text(
-                              m.canManage ? '${m.name} · ${m.role}' : m.name,
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                  .map((m) => GestureDetector(
+                        // Tap someone else to report or block them (issue #34).
+                        onTap: m.userId == myId
+                            ? null
+                            : () => showContentMenu(
+                                  context,
+                                  ref,
+                                  reportLabel: 'Report ${m.name}',
+                                  onReport: () => showReportDialog(
+                                    context,
+                                    ref,
+                                    type: ReportType.member,
+                                    subject: m.name,
+                                    clubId: club.id,
+                                    targetId: m.userId,
+                                    targetUserId: m.userId,
+                                    snapshot: m.name,
+                                  ),
+                                  blockUserId: m.userId,
+                                  blockName: m.name,
+                                ),
+                        child: Container(
+                          padding: const EdgeInsets.only(left: 4, right: 10, top: 4, bottom: 4),
+                          decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(999)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              UserAvatar(avatarUrl: m.avatarUrl, initials: m.initials, size: 20),
+                              const SizedBox(width: 6),
+                              Text(
+                                m.canManage ? '${m.name} · ${m.role}' : m.name,
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ))
                   .toList(),

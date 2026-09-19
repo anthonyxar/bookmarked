@@ -5,8 +5,11 @@ import '../../models/club.dart';
 import '../../models/club_review.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/club_lists_provider.dart';
+import '../../providers/moderation_provider.dart';
 import '../../theme.dart';
+import '../../widgets/content_menu.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/report_dialog.dart';
 import '../../widgets/star_rating.dart';
 import '../../widgets/user_avatar.dart';
 import '../home/add_book_screen.dart';
@@ -84,7 +87,10 @@ class _ClubReviewsScreenState extends ConsumerState<ClubReviewsScreen> {
   Widget build(BuildContext context) {
     final myId = ref.watch(authProvider).user?.id;
     final state = ref.watch(clubReviewsProvider(_args));
-    final reviews = state.reviews;
+    // The server already skips people you've blocked; this also hides someone
+    // you blocked just now, before the list is next fetched (issue #34).
+    final blocked = ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
+    final reviews = state.reviews.where((r) => !blocked.contains(r.userId)).toList();
     final hasLocked = reviews.any((r) => r.locked);
 
     return Scaffold(
@@ -132,6 +138,26 @@ class _ClubReviewsScreenState extends ConsumerState<ClubReviewsScreen> {
                                 review: review,
                                 isMine: review.userId == myId,
                                 onTapMine: () => _openMyReview(review),
+                                onMore: review.userId == myId || review.locked
+                                    ? null
+                                    : () => showContentMenu(
+                                          context,
+                                          ref,
+                                          reportLabel: "Report ${review.name}'s review",
+                                          onReport: () => showReportDialog(
+                                            context,
+                                            ref,
+                                            type: ReportType.review,
+                                            subject: "${review.name}'s review",
+                                            clubId: widget.clubId,
+                                            targetId: review.userId,
+                                            targetUserId: review.userId,
+                                            bookId: widget.book.id,
+                                            snapshot: review.finalReview ?? '',
+                                          ),
+                                          blockUserId: review.userId,
+                                          blockName: review.name,
+                                        ),
                               )),
                           if (state.loadingMore)
                             const Padding(
@@ -150,7 +176,10 @@ class _ReviewCard extends StatelessWidget {
   final ClubReviewEntry review;
   final bool isMine;
   final VoidCallback onTapMine;
-  const _ReviewCard({required this.review, required this.isMine, required this.onTapMine});
+
+  /// Opens the report/block menu; null for your own review or a locked one.
+  final VoidCallback? onMore;
+  const _ReviewCard({required this.review, required this.isMine, required this.onTapMine, this.onMore});
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +213,15 @@ class _ReviewCard extends StatelessWidget {
                 ),
               ),
               if (review.rating != null) StarRating(rating: review.rating!, size: 14),
+              if (onMore != null)
+                IconButton(
+                  tooltip: 'Report or block',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
+                  icon: const Icon(Icons.more_horiz, size: 18, color: AppColors.inkSoft),
+                  onPressed: onMore,
+                ),
             ],
           ),
           const SizedBox(height: 8),

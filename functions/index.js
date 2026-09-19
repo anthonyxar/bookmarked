@@ -8,6 +8,7 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentDeleted, onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { deleteAccountData, deleteClubImage, isRecentSignIn } = require("./account-deletion");
+const { ModerationError, blockedIdsFor, resolveReport: applyReportAction } = require("./moderation");
 
 // Same region as the Firestore database (australia-southeast1): Firestore
 // triggers must be co-located with it, and it keeps the callables' reads local.
@@ -68,6 +69,40 @@ exports.cleanupClubSubcollections = onDocumentDeleted("clubs/{clubId}", async (e
     await deleteClubImage(getStorage().bucket(), event.params.clubId);
   } catch (e) {
     logger.warn("cleanupClubSubcollections: could not delete the club image", { clubId: event.params.clubId, error: e.message });
+  }
+});
+
+// Moderator action on a user-filed report: dismiss it, remove the reported
+// content, remove the member from the club, or suspend the user. Only callers
+// with the `admin` custom claim (see docs/moderation.md); everything else goes
+// through the Admin SDK inside moderation.js. See issue #34.
+exports.resolveReport = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in first.");
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError("permission-denied", "Moderators only.");
+  }
+  const { reportId, action } = request.data || {};
+  if (!reportId || !action) {
+    throw new HttpsError("invalid-argument", "reportId and action are required.");
+  }
+
+  try {
+    const result = await applyReportAction({
+      db: getFirestore(),
+      auth: getAuth(),
+      bucket: getStorage().bucket(),
+      reportId,
+      action,
+      adminUid: request.auth.uid,
+    });
+    logger.info("resolveReport: done", { action });
+    return result;
+  } catch (e) {
+    if (e instanceof ModerationError) throw new HttpsError(e.code, e.message);
+    logger.error("resolveReport: failed", { error: e.message });
+    throw new HttpsError("internal", "Could not apply that action.");
   }
 });
 
@@ -145,10 +180,13 @@ exports.listClubReviews = onCall(async (request) => {
   const viewerFinished = myProgressSnap.data()?.finished === true;
 
   const activeMembersSnap = await clubRef.collection("memberships").where("status", "==", "active").get();
+  const blocked = await blockedIdsFor(db, uid);
 
   const items = [];
   for (const membership of activeMembersSnap.docs) {
     const memberUid = membership.id;
+    // People the viewer has blocked don't appear at all (issue #34).
+    if (blocked.has(memberUid)) continue;
     const isOwn = memberUid === uid;
     const profile = (await db.collection("users").doc(memberUid).get()).data() || {};
 

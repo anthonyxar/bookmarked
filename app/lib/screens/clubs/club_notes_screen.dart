@@ -5,8 +5,11 @@ import 'package:intl/intl.dart';
 import '../../models/club.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/club_lists_provider.dart';
+import '../../providers/moderation_provider.dart';
 import '../../theme.dart';
+import '../../widgets/content_menu.dart';
 import '../../widgets/error_state.dart';
+import '../../widgets/report_dialog.dart';
 
 final _dateFmt = DateFormat('MMM d');
 
@@ -94,7 +97,9 @@ class _ClubNotesScreenState extends ConsumerState<ClubNotesScreen> {
   Widget build(BuildContext context) {
     final myId = ref.watch(authProvider).user?.id;
     final state = ref.watch(clubNotesProvider(_args));
-    final notes = state.notes;
+    // Notes by people the user has blocked are hidden (issue #34).
+    final blocked = ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
+    final notes = state.notes.where((n) => !blocked.contains(n.userId)).toList();
 
     return Scaffold(
       backgroundColor: AppColors.paper,
@@ -159,7 +164,38 @@ class _ClubNotesScreenState extends ConsumerState<ClubNotesScreen> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text('Chapter ${note.chapter} · ${note.authorName}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                                        Text(_dateFmt.format(note.createdAt), style: const TextStyle(fontSize: 10.5, color: AppColors.inkSoft)),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(_dateFmt.format(note.createdAt), style: const TextStyle(fontSize: 10.5, color: AppColors.inkSoft)),
+                                            if (!isMine)
+                                              IconButton(
+                                                tooltip: 'Report or block',
+                                                visualDensity: VisualDensity.compact,
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
+                                                icon: const Icon(Icons.more_horiz, size: 18, color: AppColors.inkSoft),
+                                                onPressed: () => showContentMenu(
+                                                  context,
+                                                  ref,
+                                                  reportLabel: 'Report this note',
+                                                  onReport: () => showReportDialog(
+                                                    context,
+                                                    ref,
+                                                    type: ReportType.note,
+                                                    subject: 'this note',
+                                                    clubId: widget.clubId,
+                                                    targetId: note.id,
+                                                    targetUserId: note.userId,
+                                                    bookId: widget.book.id,
+                                                    snapshot: note.body,
+                                                  ),
+                                                  blockUserId: note.userId,
+                                                  blockName: note.authorName,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
