@@ -7,7 +7,7 @@ import 'clubs_provider.dart';
 
 final clubDetailProvider = FutureProvider.family<Club, String>((ref, clubId) async {
   final db = ref.watch(firestoreProvider);
-  final uid = ref.watch(authProvider).user?.id;
+  final uid = ref.watch(authProvider.select((s) => s.user?.id));
   if (uid == null) throw StateError('Not signed in');
   final myMembership = await db.collection('clubs').doc(clubId).collection('memberships').doc(uid).get();
   final myRole = myMembership.data()?['role'] as String? ?? 'member';
@@ -16,7 +16,7 @@ final clubDetailProvider = FutureProvider.family<Club, String>((ref, clubId) asy
 
 final clubBingoProvider = FutureProvider.family<ClubBingo, String>((ref, clubId) async {
   final db = ref.watch(firestoreProvider);
-  final uid = ref.watch(authProvider).user?.id;
+  final uid = ref.watch(authProvider.select((s) => s.user?.id));
   if (uid == null) throw StateError('Not signed in');
   return fetchOrCreateClubBingo(db, clubId, uid);
 });

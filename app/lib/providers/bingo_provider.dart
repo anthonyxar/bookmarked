@@ -194,7 +194,7 @@ class BingoNotifier extends StateNotifier<BingoState> {
 }
 
 final bingoProvider = StateNotifierProvider<BingoNotifier, BingoState>((ref) {
-  final notifier = BingoNotifier(ref.watch(firestoreProvider), ref.watch(authProvider).user?.id, ref.read(selectedYearProvider));
+  final notifier = BingoNotifier(ref.watch(firestoreProvider), ref.watch(authProvider.select((s) => s.user?.id)), ref.read(selectedYearProvider));
   ref.listen<int>(selectedYearProvider, (previous, next) {
     if (previous != next) notifier.load(year: next);
   });

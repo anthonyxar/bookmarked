@@ -9,7 +9,7 @@ import 'auth_provider.dart';
 /// challenges), so there's a single underlying Firestore listener rather than
 /// one per consumer.
 final userBooksProvider = StreamProvider.autoDispose<List<Book>>((ref) {
-  final uid = ref.watch(authProvider).user?.id;
+  final uid = ref.watch(authProvider.select((s) => s.user?.id));
   if (uid == null) return Stream.value(const []);
   return ref
       .watch(firestoreProvider)
@@ -224,5 +224,5 @@ class BooksNotifier extends StateNotifier<BooksState> {
 }
 
 final booksProvider = StateNotifierProvider.autoDispose<BooksNotifier, BooksState>((ref) {
-  return BooksNotifier(ref, ref.watch(firestoreProvider), ref.watch(authProvider).user?.id);
+  return BooksNotifier(ref, ref.watch(firestoreProvider), ref.watch(authProvider.select((s) => s.user?.id)));
 });

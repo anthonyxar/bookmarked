@@ -588,5 +588,5 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
 }
 
 final clubsProvider = StateNotifierProvider<ClubsNotifier, ClubsState>((ref) {
-  return ClubsNotifier(ref.watch(firestoreProvider), ref.watch(authProvider).user?.id);
+  return ClubsNotifier(ref.watch(firestoreProvider), ref.watch(authProvider.select((s) => s.user?.id)));
 });

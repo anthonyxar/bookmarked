@@ -227,7 +227,7 @@ class BracketNotifier extends StateNotifier<BracketState> {
 }
 
 final bracketProvider = StateNotifierProvider<BracketNotifier, BracketState>((ref) {
-  final notifier = BracketNotifier(ref, ref.watch(firestoreProvider), ref.watch(authProvider).user?.id, ref.read(selectedYearProvider));
+  final notifier = BracketNotifier(ref, ref.watch(firestoreProvider), ref.watch(authProvider.select((s) => s.user?.id)), ref.read(selectedYearProvider));
   ref.listen<int>(selectedYearProvider, (previous, next) {
     if (previous != next) notifier.load(year: next);
   });
