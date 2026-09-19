@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/club.dart';
 import '../models/club_note.dart';
 import '../models/club_review.dart';
+import '../utils/app_functions.dart';
 import 'auth_provider.dart';
 
 const _pageSize = 30;
@@ -256,7 +257,7 @@ class ClubReviewsNotifier extends StateNotifier<ClubReviewsState> {
   }
 
   Future<Map<String, dynamic>> _call(int offset, bool override) async {
-    final result = await FirebaseFunctions.instance.httpsCallable('listClubReviews').call({
+    final result = await appFunctions.httpsCallable('listClubReviews').call({
       'clubId': args.clubId,
       'clubBookId': args.clubBookId,
       'override': override,

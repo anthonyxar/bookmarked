@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_gate.dart';
 import 'theme.dart';
+import 'utils/app_functions.dart';
 
 // Defaults to the Local Emulator Suite (see firebase.json / docker-compose.yml).
 // For a real Firebase project or a physical device that can't reach
@@ -29,7 +29,7 @@ Future<void> main() async {
     await FirebaseAuth.instance.useAuthEmulator(firebaseEmulatorHost, 9099);
     FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8080);
     await FirebaseStorage.instance.useStorageEmulator(firebaseEmulatorHost, 9199);
-    FirebaseFunctions.instance.useFunctionsEmulator(firebaseEmulatorHost, 5001);
+    appFunctions.useFunctionsEmulator(firebaseEmulatorHost, 5001);
   } else {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/club.dart';
 import '../models/club_bingo.dart';
+import '../utils/app_functions.dart';
 import 'auth_provider.dart';
 
 // Mirrors the retired backend's DEFAULT_LABELS (`git show
@@ -370,7 +371,7 @@ class ClubsNotifier extends StateNotifier<ClubsState> {
   Future<bool> inviteMember(String clubId, String email) async {
     if (_uid == null) return false;
     try {
-      final result = await FirebaseFunctions.instance.httpsCallable('lookupUserByEmail').call({'email': email});
+      final result = await appFunctions.httpsCallable('lookupUserByEmail').call({'email': email});
       final inviteeUid = result.data['uid'] as String;
 
       final ref = _memberships(clubId).doc(inviteeUid);

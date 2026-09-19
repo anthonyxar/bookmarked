@@ -2,8 +2,14 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentDeleted, onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+
+// Same region as the Firestore database (australia-southeast1): Firestore
+// triggers must be co-located with it, and it keeps the callables' reads local.
+// The app names this region too — see app/lib/utils/app_functions.dart.
+setGlobalOptions({ region: "australia-southeast1" });
 
 initializeApp();
 

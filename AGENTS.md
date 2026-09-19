@@ -52,7 +52,11 @@ backend: Auth (9099), Firestore (8080), Storage
 - Cloud Functions are for what Firestore Security Rules genuinely can't do
   (recursive subcollection delete, admin-only email lookup, FCM triggers) —
   not a general home for business logic. See the ADR's "Consequences"
-  section before adding one.
+  section before adding one. The Firestore database and all functions live in
+  `australia-southeast1` (Firestore triggers must share the database's
+  region): set once via `setGlobalOptions` in `functions/index.js`, and the app
+  must call functions through `appFunctions` (`app/lib/utils/app_functions.dart`),
+  never `FirebaseFunctions.instance` (defaults to us-central1 → "not found").
 - Desktop Flutter targets (`linux/`, `macos/`, `windows/`) and web are being
   dropped — Firestore isn't stable there and the app is Android/iOS only
   going forward (issue #7). Don't fix desktop-specific build breakage; raise
