@@ -44,9 +44,22 @@ service cloud.firestore {
       // there's no separate public-profile collection, and no email field
       // is ever stored here (see issue #23), so a full-doc read doesn't leak
       // more than club UI already relies on.
-      allow read: if isSignedIn();
+      //
+      // `get` only, never `list`: the client always fetches a profile by id,
+      // and allowing list/query would let any signed-in user dump every
+      // profile. Anything private (push tokens) lives in a subcollection
+      // below, not on this doc, since every field here is readable by all.
+      allow get: if isSignedIn();
+      allow list: if false;
       allow create, update: if isSignedIn() && uid == request.auth.uid;
       allow delete: if false;
+
+      // FCM registration tokens, one doc per token. Owner-only; the notify
+      // functions read them with the Admin SDK, which bypasses rules. See
+      // issue #38.
+      match /fcmTokens/{token} {
+        allow read, write: if isSignedIn() && uid == request.auth.uid;
+      }
 
       match /books/{bookId} {
         allow read, write: if isSignedIn() && uid == request.auth.uid;
@@ -98,8 +111,11 @@ service cloud.firestore {
           // Creating your own owner membership right after creating the club.
           (memberId == request.auth.uid && request.resource.data.role == 'owner' &&
             request.resource.data.status == 'active' && isClubOwner(clubId)) ||
-          // Owner/admin inviting someone new.
-          (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && request.resource.data.status == 'invited')
+          // Owner/admin inviting someone new. The role is capped at
+          // member/admin: an 'owner'-role row can never be changed or removed
+          // by the update rules below, so it must not be creatable by invite.
+          (memberId != request.auth.uid && isOwnerOrAdmin(clubId) && request.resource.data.status == 'invited' &&
+            request.resource.data.role in ['member', 'admin'])
         );
 
         allow update: if isSignedIn() && (

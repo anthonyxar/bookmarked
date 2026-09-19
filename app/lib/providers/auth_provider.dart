@@ -97,11 +97,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     });
   }
 
-  /// Requests notification permission and stores this device's FCM token on
-  /// the user's profile (an array, since one account may have several
-  /// devices) — the invite/new-club-book Cloud Function triggers (#18) send
-  /// to every token there. Silently no-ops on denial/failure: push is a
-  /// nice-to-have, never a sign-in blocker.
+  /// Requests notification permission and stores this device's FCM token in
+  /// the user's private `users/{uid}/fcmTokens/{token}` subcollection (one doc
+  /// per token, since one account may have several devices) — the
+  /// invite/new-club-book Cloud Function triggers (#18) send to every token
+  /// there. Silently no-ops on denial/failure: push is a nice-to-have, never a
+  /// sign-in blocker.
   Future<void> _registerFcmToken(String uid) async {
     try {
       final messaging = FirebaseMessaging.instance;
@@ -109,20 +110,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
       final token = await messaging.getToken();
-      if (token != null) {
-        await _db.collection('users').doc(uid).update({
-          'fcmTokens': FieldValue.arrayUnion([token]),
-        });
-      }
+      if (token != null) await _saveFcmToken(uid, token);
 
       await _tokenRefreshSub?.cancel();
-      _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) {
-        _db.collection('users').doc(uid).update({
-          'fcmTokens': FieldValue.arrayUnion([newToken]),
-        });
-      });
+      _tokenRefreshSub = messaging.onTokenRefresh.listen((newToken) => _saveFcmToken(uid, newToken));
     } catch (_) {
       // Notification permission/token registration failures shouldn't block sign-in.
+    }
+  }
+
+  Future<void> _saveFcmToken(String uid, String token) async {
+    try {
+      final userDoc = _db.collection('users').doc(uid);
+      await userDoc.collection('fcmTokens').doc(token).set({'createdAt': FieldValue.serverTimestamp()});
+      // Older builds kept tokens in an array on the profile doc itself, which
+      // every signed-in user can read (issue #38) — drop that copy.
+      await userDoc.update({'fcmTokens': FieldValue.delete()});
+    } catch (_) {
+      // Best effort, like registration itself.
+    }
+  }
+
+  /// Forgets this device's token for the signed-out account, so a later user
+  /// of the same phone doesn't leave the previous account still getting its
+  /// pushes.
+  Future<void> _removeFcmToken() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final token = await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 3));
+      if (token != null) {
+        await _db.collection('users').doc(uid).collection('fcmTokens').doc(token).delete();
+      }
+    } catch (_) {
+      // Never block logging out on this.
     }
   }
 
@@ -292,6 +313,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await _removeFcmToken();
     // Only touch GoogleSignIn if this session actually constructed one —
     // avoids the lazy getter creating it (and, on web, crashing without a
     // configured client ID) on every logout regardless of sign-in method.

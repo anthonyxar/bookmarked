@@ -2,6 +2,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const logger = require("firebase-functions/logger");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentDeleted, onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
@@ -178,6 +179,16 @@ exports.listClubReviews = onCall(async (request) => {
   return { items: items.slice(pageOffset, pageOffset + pageLimit), total };
 });
 
+// A user's FCM registration tokens, one doc per token under
+// users/{uid}/fcmTokens (doc id = the token). They live in a private
+// subcollection rather than on the profile doc because every field of
+// users/{uid} is readable by any signed-in user (issue #38). The Admin SDK
+// bypasses security rules, so this read works regardless.
+async function fcmTokensFor(db, uid) {
+  const snap = await db.collection("users").doc(uid).collection("fcmTokens").get();
+  return snap.docs.map((d) => d.id);
+}
+
 // Notifies the invitee when their membership doc's status becomes "invited".
 // Uses onDocumentWritten (not onDocumentCreated) because inviteMember in
 // clubs_provider.dart does a `set` on memberships/{uid}, which overwrites an
@@ -189,14 +200,14 @@ exports.notifyClubInvite = onDocumentWritten("clubs/{clubId}/memberships/{uid}",
   if (!after || after.status !== "invited" || before?.status === "invited") return;
 
   const db = getFirestore();
-  const [clubSnap, userSnap] = await Promise.all([
+  const [clubSnap, tokens] = await Promise.all([
     db.collection("clubs").doc(event.params.clubId).get(),
-    db.collection("users").doc(event.params.uid).get(),
+    fcmTokensFor(db, event.params.uid),
   ]);
-  const tokens = userSnap.data()?.fcmTokens || [];
   if (tokens.length === 0) return;
 
   const clubName = clubSnap.data()?.name || "a club";
+  logger.info("notifyClubInvite: sending", { devices: tokens.length });
   await getMessaging().sendEachForMulticast({
     tokens,
     notification: {
@@ -221,10 +232,10 @@ exports.notifyClubNewBook = onDocumentCreated("clubs/{clubId}/books/{bookId}", a
   ]);
   const clubName = clubSnap.data()?.name || "Your club";
 
-  const userSnaps = await Promise.all(membersSnap.docs.map((m) => db.collection("users").doc(m.id).get()));
-  const tokens = userSnaps.flatMap((u) => u.data()?.fcmTokens || []);
+  const tokens = (await Promise.all(membersSnap.docs.map((m) => fcmTokensFor(db, m.id)))).flat();
   if (tokens.length === 0) return;
 
+  logger.info("notifyClubNewBook: sending", { devices: tokens.length });
   await getMessaging().sendEachForMulticast({
     tokens,
     notification: {

@@ -214,3 +214,45 @@ test('collection group: a user cannot query another user\'s membership rows', as
 test('an unauthenticated request cannot read anything', async () => {
   await assertFails(getDoc(doc(asAnon(), 'clubs/club1')));
 });
+
+// --- Issue #38: push tokens, profile listing, invite roles -----------------
+
+test('fcm tokens: the owner can write and read their own token docs', async () => {
+  await assertSucceeds(setDoc(doc(asAlice(), 'users/alice/fcmTokens/tok-alice'), { createdAt: new Date() }));
+  await assertSucceeds(getDoc(doc(asAlice(), 'users/alice/fcmTokens/tok-alice')));
+  await assertSucceeds(getDocs(collection(asAlice(), 'users/alice/fcmTokens')));
+});
+
+test('fcm tokens: another user cannot read or list someone else\'s tokens', async () => {
+  await assertFails(getDoc(doc(asBob(), 'users/alice/fcmTokens/tok-alice')));
+  await assertFails(getDocs(collection(asBob(), 'users/alice/fcmTokens')));
+});
+
+test('fcm tokens: another user cannot write to someone else\'s tokens', async () => {
+  await assertFails(setDoc(doc(asBob(), 'users/alice/fcmTokens/tok-bob'), { createdAt: new Date() }));
+  await assertFails(deleteDoc(doc(asBob(), 'users/alice/fcmTokens/tok-alice')));
+});
+
+test('users: a signed-in user can still read another user\'s profile by id', async () => {
+  await assertSucceeds(getDoc(doc(asBob(), 'users/alice')));
+});
+
+test('users: a signed-in user cannot list or query the users collection', async () => {
+  await assertFails(getDocs(collection(asBob(), 'users')));
+  await assertFails(getDocs(query(collection(asBob(), 'users'), where('name', '==', 'Alice'))));
+});
+
+test('club invites: an owner cannot invite someone straight in with the owner role', async () => {
+  await assertFails(setDoc(doc(asAlice(), 'clubs/club2/memberships/carol'), {
+    userId: 'carol', role: 'owner', status: 'invited', invitedById: 'alice',
+  }));
+});
+
+test('club invites: an owner can invite someone as a member or an admin', async () => {
+  await assertSucceeds(setDoc(doc(asAlice(), 'clubs/club2/memberships/carol'), {
+    userId: 'carol', role: 'member', status: 'invited', invitedById: 'alice',
+  }));
+  await assertSucceeds(setDoc(doc(asAlice(), 'clubs/club2/memberships/bob'), {
+    userId: 'bob', role: 'admin', status: 'invited', invitedById: 'alice',
+  }));
+});

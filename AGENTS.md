@@ -58,7 +58,11 @@ backend: Auth (9099), Firestore (8080), Storage
   and Profile pages, not at sign-up; the old single `readingGoal` only stands
   in for the *current* year — see `AppUser.goalFor`), and `topBooks` is an
   ordered list of up to five book snapshots (`TopBook`), not references,
-  because a user's `books` docs are private to them.
+  because a user's `books` docs are private to them. Every field on that doc
+  is readable by any signed-in user (by id only; `list` is denied), so
+  nothing private goes on it — FCM push tokens live in
+  `users/{uid}/fcmTokens/{token}` (owner-only; the notify functions read them
+  with the Admin SDK).
 - Cloud Functions are for what Firestore Security Rules genuinely can't do
   (recursive subcollection delete, admin-only email lookup, FCM triggers) —
   not a general home for business logic. See the ADR's "Consequences"
