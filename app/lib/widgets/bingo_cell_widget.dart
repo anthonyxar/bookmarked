@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
+/// Width / height of a cell in the 5-column bingo grids. Portrait rather than
+/// square: at ~55dp wide a square cell only fits three or four short lines, so
+/// longer labels ("Recommended by a friend") overflowed the border.
+const bingoCellAspectRatio = 0.72;
+
 class BingoCellWidget extends StatelessWidget {
   final String label;
   final bool completed;
@@ -28,7 +33,7 @@ class BingoCellWidget extends StatelessWidget {
         width: size,
         height: size,
         alignment: Alignment.center,
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: completed ? AppColors.green : AppColors.paperSoft,
           borderRadius: BorderRadius.circular(8),
@@ -44,7 +49,7 @@ class BingoCellWidget extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              maxLines: 4,
+              maxLines: 5,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: size / 7,

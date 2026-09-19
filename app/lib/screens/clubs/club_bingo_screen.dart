@@ -68,7 +68,12 @@ class _ClubBingoScreenState extends ConsumerState<ClubBingoScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: bingo.squares.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 6, crossAxisSpacing: 6),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                  childAspectRatio: bingoCellAspectRatio,
+                ),
                 itemBuilder: (context, i) {
                   final square = bingo.squares[i];
                   return BingoCellWidget(
