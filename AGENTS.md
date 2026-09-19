@@ -53,6 +53,12 @@ backend: Auth (9099), Firestore (8080), Storage
   constraints Postgres gave up (e.g. `clubs/{clubId}/memberships/{uid}`,
   `users/{uid}/bracketPicks/{year}_{matchId}`) — check a domain's migration
   issue for the exact collection layout before inventing a new shape.
+- Profile data lives on the `users/{uid}` doc itself, so it needs no extra
+  rules: `readingGoals` is a map of year → goal (set per year from the Stats
+  and Profile pages, not at sign-up; the old single `readingGoal` only stands
+  in for the *current* year — see `AppUser.goalFor`), and `topBooks` is an
+  ordered list of up to five book snapshots (`TopBook`), not references,
+  because a user's `books` docs are private to them.
 - Cloud Functions are for what Firestore Security Rules genuinely can't do
   (recursive subcollection delete, admin-only email lookup, FCM triggers) —
   not a general home for business logic. See the ADR's "Consequences"

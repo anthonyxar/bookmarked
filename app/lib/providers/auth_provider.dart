@@ -157,7 +157,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
     required String name,
-    required int readingGoal,
     required List<String> genres,
   }) async {
     state = state.copyWith(loading: true, clearError: true);
@@ -168,7 +167,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _db.collection('users').doc(uid).set({
         'name': name,
         'avatarUrl': null,
-        'readingGoal': readingGoal,
         'genres': genres,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -221,14 +219,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await doc.set({
           'name': userCredential.user!.displayName ?? 'Reader',
           'avatarUrl': userCredential.user!.photoURL,
-          'readingGoal': 40,
           'genres': <String>[],
           'createdAt': FieldValue.serverTimestamp(),
         });
         created = true;
       }
-      // Google sign-up skips the register screen's goal/genre pickers, so a
-      // brand-new profile gets them prompted once (see HomeShell).
+      // Google sign-up skips the register screen's genre picker, so a
+      // brand-new profile gets it prompted once (see HomeShell). Reading goals
+      // are per year and set from the Stats/Profile pages, not at sign-up.
       state = state.copyWith(loading: false, needsProfileSetup: created ? true : null);
       return true;
     } on fb_auth.FirebaseAuthException catch (e) {
@@ -244,15 +242,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.needsProfileSetup) state = state.copyWith(needsProfileSetup: false);
   }
 
-  Future<void> updateProfile({String? name, int? readingGoal, List<String>? genres}) async {
+  Future<void> updateProfile({String? name, List<String>? genres}) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
-    if (readingGoal != null) updates['readingGoal'] = readingGoal;
     if (genres != null) updates['genres'] = genres;
     if (updates.isEmpty) return;
     await _db.collection('users').doc(uid).update(updates);
+  }
+
+  /// Sets the reading goal for one [year]. Merged into the `readingGoals`
+  /// map so other years' goals are left alone.
+  Future<void> setReadingGoal(int year, int goal) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).set({
+      'readingGoals': {'$year': goal},
+    }, SetOptions(merge: true));
+  }
+
+  /// Replaces the profile's favourite books (ranked, best first).
+  Future<void> setTopBooks(List<TopBook> books) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).update({
+      'topBooks': [for (final b in books.take(AppUser.maxTopBooks)) b.toMap()],
+    });
   }
 
   Future<bool> uploadAvatar({required Uint8List bytes, required String filename}) async {

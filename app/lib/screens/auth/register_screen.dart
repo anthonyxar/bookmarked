@@ -6,7 +6,6 @@ import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/genre_chip.dart';
-import '../../widgets/goal_stepper.dart';
 import '../../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -21,7 +20,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  int _goal = 40;
   final Set<String> _genres = {};
 
   @override
@@ -38,7 +36,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           email: _emailCtrl.text.trim(),
           password: _passwordCtrl.text,
           name: name,
-          readingGoal: _goal,
           genres: _genres.isEmpty ? ['Romance', 'Fantasy'] : _genres.toList(),
         );
     if (!ok && mounted) {
@@ -105,10 +102,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       obscureText: true,
                       decoration: const InputDecoration(hintText: 'At least 8 characters'),
                     ),
-                    const SizedBox(height: 18),
-                    const Text('READING GOAL THIS YEAR', style: labelCapsStyle),
-                    const SizedBox(height: 10),
-                    GoalStepper(goal: _goal, onChanged: (v) => setState(() => _goal = v)),
                     const SizedBox(height: 18),
                     const Text('PICK A FEW GENRES YOU LOVE', style: labelCapsStyle),
                     const SizedBox(height: 10),

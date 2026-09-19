@@ -4,12 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
 import '../../widgets/genre_chip.dart';
-import '../../widgets/goal_stepper.dart';
 
-/// Edits the name, yearly reading goal and favourite genres. Also shown once,
-/// with [firstTime] set, right after a first-time Google sign-in — that path
-/// skips the register screen's pickers and would otherwise be stuck on the
-/// defaults.
+/// Edits the name and favourite genres (reading goals are per year and edited
+/// where they're shown — see showReadingGoalSheet). Also shown once, with
+/// [firstTime] set, right after a first-time Google sign-in — that path skips
+/// the register screen's genre picker.
 class EditProfileScreen extends ConsumerStatefulWidget {
   final bool firstTime;
   const EditProfileScreen({super.key, this.firstTime = false});
@@ -20,7 +19,6 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _nameCtrl;
-  late int _goal;
   late final Set<String> _genres;
   bool _saving = false;
 
@@ -29,7 +27,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.initState();
     final user = ref.read(authProvider).user;
     _nameCtrl = TextEditingController(text: user?.name ?? '');
-    _goal = user?.readingGoal ?? 40;
     _genres = {...?user?.genres};
   }
 
@@ -45,7 +42,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     try {
       await ref.read(authProvider.notifier).updateProfile(
             name: name.isEmpty ? null : name,
-            readingGoal: _goal,
             genres: _genres.toList(),
           );
     } catch (_) {
@@ -87,10 +83,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   const Text('YOUR NAME', style: labelCapsStyle),
                   const SizedBox(height: 6),
                   TextField(controller: _nameCtrl, decoration: const InputDecoration(hintText: 'e.g. Alex')),
-                  const SizedBox(height: 18),
-                  const Text('READING GOAL THIS YEAR', style: labelCapsStyle),
-                  const SizedBox(height: 10),
-                  GoalStepper(goal: _goal, onChanged: (v) => setState(() => _goal = v)),
                   const SizedBox(height: 18),
                   const Text('FAVOURITE GENRES', style: labelCapsStyle),
                   const SizedBox(height: 10),

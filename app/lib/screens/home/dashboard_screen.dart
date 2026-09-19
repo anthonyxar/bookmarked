@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/year_provider.dart';
 import '../../theme.dart';
+import '../../widgets/reading_goal_sheet.dart';
 import 'bracket_screen.dart';
 
 const _monthLabels = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
@@ -59,9 +60,9 @@ class DashboardScreen extends ConsumerWidget {
                     Expanded(child: _StatTile(value: '${dash.pagesRead}', label: 'Pages Read', color: AppColors.terra)),
                   ],
                 ),
-                if (user != null && user.readingGoal > 0) ...[
+                if (user != null) ...[
                   const SizedBox(height: 14),
-                  _ReadingGoalCard(totalRead: dash.totalRead, goal: user.readingGoal, year: dash.year),
+                  _ReadingGoalCard(totalRead: dash.totalRead, goal: user.goalFor(dash.year), year: dash.year),
                 ],
                 const SizedBox(height: 14),
                 GestureDetector(
@@ -173,14 +174,44 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-class _ReadingGoalCard extends StatelessWidget {
+class _ReadingGoalCard extends ConsumerWidget {
   final int totalRead;
-  final int goal;
+
+  /// The goal for [year], or null if none has been set for it yet.
+  final int? goal;
   final int year;
   const _ReadingGoalCard({required this.totalRead, required this.goal, required this.year});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goal = this.goal;
+    if (goal == null) {
+      return GestureDetector(
+        onTap: () => showReadingGoalSheet(context, ref, year: year),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            children: [
+              const Icon(Icons.flag_outlined, size: 20, color: AppColors.gold),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Set your $year reading goal', style: AppTheme.serif.copyWith(fontSize: 14)),
+                    const Text('Track your progress across the year', style: TextStyle(fontSize: 10.5, color: AppColors.inkSoft)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.lineStrong),
+            ],
+          ),
+        ),
+      );
+    }
+
     final pct = goal == 0 ? 0.0 : (totalRead / goal).clamp(0, 1).toDouble();
     final isCurrentYear = year == DateTime.now().year;
     return Container(
@@ -194,7 +225,17 @@ class _ReadingGoalCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('READING GOAL', style: labelCapsStyle),
-              Text('${(pct * 100).round()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.gold)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${(pct * 100).round()}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.gold)),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => showReadingGoalSheet(context, ref, year: year),
+                    child: const Icon(Icons.edit_outlined, size: 16, color: AppColors.green),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 10),
