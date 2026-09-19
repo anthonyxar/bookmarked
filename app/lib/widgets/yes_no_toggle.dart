@@ -17,10 +17,14 @@ class YesNoToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: AppColors.paperSoft, border: Border.all(color: AppColors.line), borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // Label above the control, not beside it: the review screens put two of
+      // these side by side, so each only gets a bit under half the screen and
+      // a label + control row overflowed on real phones.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(color: AppColors.creamDark, borderRadius: BorderRadius.circular(999)),
             padding: const EdgeInsets.all(2),
