@@ -1,6 +1,9 @@
 # env
 .env
 
+# Android debug signing key mounted into the app container (docker-compose.yml)
+keystore/
+
 # Leftover dev uploads from the deleted FastAPI backend (untracked; remove
 # this line once backend/uploads/ is deleted from disk)
 backend/uploads/

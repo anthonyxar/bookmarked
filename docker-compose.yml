@@ -58,6 +58,11 @@ services:
       - firebase
     volumes:
       - ./app:/app
+      # Keeps the Android debug signing key stable across container rebuilds —
+      # the SHA-1 registered in the Firebase console for Google Sign-In has to
+      # match it. Mounting the directory (not the file) means Docker never
+      # creates an empty debug.keystore/ folder if the key is missing.
+      - ./keystore:/root/.android
     command: sh -c "flutter pub get && tail -f /dev/null"
 
 volumes:

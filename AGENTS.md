@@ -28,9 +28,14 @@ through `docker compose`. Verify Flutter changes with:
 docker compose run --rm --no-deps app sh -c "flutter pub get && flutter analyze"
 ```
 
-The `app` service's default command runs the dev server in `--release` mode
-(`docker-compose.yml`) — a prior debug-mode config caused recurring blank-
-screen hangs, so don't revert that.
+The `app` service is only a workspace (no dev server — there's no device in the
+container). Its `~/.android` is mounted from the gitignored `keystore/` dir so
+APKs are always signed with the same debug key; the SHA-1/SHA-256 of
+`keystore/debug.keystore` are what's registered in the Firebase console for
+Google Sign-In. Without that mount the key is regenerated per container and
+sign-in on Android fails with DEVELOPER_ERROR (code 10). Recreate the keystore
+with `keytool -genkeypair` (alias `androiddebugkey`, password `android`) and
+register the new fingerprints if `keystore/` is ever lost.
 
 Firebase Local Emulator Suite (`firebase` service) is the whole local
 backend: Auth (9099), Firestore (8080), Storage
