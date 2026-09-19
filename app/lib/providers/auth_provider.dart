@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -67,12 +68,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
     _profileSub = _db.collection('users').doc(user.uid).snapshots().listen((doc) {
-      if (!doc.exists) return;
+      if (!doc.exists) {
+        // Signed in but no profile yet (mid-register, or an earlier profile
+        // write failed) — don't leave the auth gate spinning forever.
+        state = state.copyWith(initializing: false);
+        return;
+      }
       state = state.copyWith(user: AppUser.fromFirestore(doc), initializing: false);
       if (_fcmRegisteredForUid != user.uid) {
         _fcmRegisteredForUid = user.uid;
         _registerFcmToken(user.uid);
       }
+    }, onError: (Object e) {
+      state = state.copyWith(initializing: false, error: _describeError(e));
     });
   }
 
@@ -122,6 +130,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Message for anything that isn't a FirebaseAuthException — Firestore
+  /// failures (rules not deployed, database missing, offline) and Google
+  /// sign-in PlatformExceptions — so a failed step surfaces an error instead of
+  /// leaving `loading` stuck on.
+  String _describeError(Object e) {
+    if (e is FirebaseException) return '${e.message ?? 'Something went wrong'} (${e.code})';
+    if (e is PlatformException) return '${e.message ?? 'Sign-in failed'} (${e.code})';
+    return 'Something went wrong';
+  }
+
   Future<bool> register({
     required String email,
     required String password,
@@ -146,6 +164,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on fb_auth.FirebaseAuthException catch (e) {
       state = state.copyWith(loading: false, error: _friendlyError(e));
       return false;
+    } catch (e) {
+      state = state.copyWith(loading: false, error: _describeError(e));
+      return false;
     }
   }
 
@@ -157,6 +178,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on fb_auth.FirebaseAuthException catch (e) {
       state = state.copyWith(loading: false, error: _friendlyError(e));
+      return false;
+    } catch (e) {
+      state = state.copyWith(loading: false, error: _describeError(e));
       return false;
     }
   }
@@ -192,6 +216,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on fb_auth.FirebaseAuthException catch (e) {
       state = state.copyWith(loading: false, error: _friendlyError(e));
+      return false;
+    } catch (e) {
+      state = state.copyWith(loading: false, error: _describeError(e));
       return false;
     }
   }
