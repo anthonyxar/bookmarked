@@ -64,31 +64,6 @@ class DashboardScreen extends ConsumerWidget {
                   _ReadingGoalCard(totalRead: dash.totalRead, goal: user.readingGoal, year: dash.year),
                 ],
                 const SizedBox(height: 14),
-                _Card(
-                  title: 'By Genre',
-                  child: dash.byGenre.isEmpty
-                      ? const _EmptyStat(text: 'Finish a book to see your genre breakdown.')
-                      : Column(children: [for (final g in dash.byGenre) _BarRow(label: g.genre, count: g.count, max: dash.byGenre.first.count, color: AppColors.green)]),
-                ),
-                const SizedBox(height: 14),
-                _Card(
-                  title: 'By Rating',
-                  child: dash.byRating.isEmpty
-                      ? const _EmptyStat(text: 'Rate a book to see your rating spread.')
-                      : Column(children: [
-                          for (final r in [5, 4, 3, 2, 1])
-                            _BarRow(
-                              label: '$r ★',
-                              count: dash.byRating.where((e) => e.rating.round() == r).fold(0, (sum, e) => sum + e.count),
-                              max: dash.byRating.map((e) => e.count).fold(1, (a, b) => a > b ? a : b),
-                              color: AppColors.gold,
-                              narrowLabel: true,
-                            ),
-                        ]),
-                ),
-                const SizedBox(height: 14),
-                _Card(title: 'By Month', child: _MonthChart(dash: dash)),
-                const SizedBox(height: 14),
                 GestureDetector(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BracketScreen())),
                   child: Container(
@@ -112,6 +87,31 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 14),
+                _Card(
+                  title: 'By Genre',
+                  child: dash.byGenre.isEmpty
+                      ? const _EmptyStat(text: 'Finish a book to see your genre breakdown.')
+                      : Column(children: [for (final g in dash.byGenre) _BarRow(label: g.genre, count: g.count, max: dash.byGenre.first.count, color: AppColors.green)]),
+                ),
+                const SizedBox(height: 14),
+                _Card(
+                  title: 'By Rating',
+                  child: dash.byRating.isEmpty
+                      ? const _EmptyStat(text: 'Rate a book to see your rating spread.')
+                      : Column(children: [
+                          for (final r in [5, 4, 3, 2, 1])
+                            _BarRow(
+                              label: '$r ★',
+                              count: dash.byRating.where((e) => e.rating.round() == r).fold(0, (sum, e) => sum + e.count),
+                              max: dash.byRating.map((e) => e.count).fold(1, (a, b) => a > b ? a : b),
+                              color: AppColors.gold,
+                              narrowLabel: true,
+                            ),
+                        ]),
+                ),
+                const SizedBox(height: 14),
+                _Card(title: 'By Month', child: MonthChart(dash: dash)),
               ],
             ),
           ),
@@ -286,9 +286,11 @@ class _BarRow extends StatelessWidget {
   }
 }
 
-class _MonthChart extends StatelessWidget {
+/// Books finished per month, as a 12-bar chart. Public only so it can be
+/// widget-tested.
+class MonthChart extends StatelessWidget {
   final Dashboard dash;
-  const _MonthChart({required this.dash});
+  const MonthChart({super.key, required this.dash});
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +316,10 @@ class _MonthChart extends StatelessWidget {
                           ),
                         SizedBox(
                           height: 56,
+                          // widthFactor matters: the bar is a childless box, which
+                          // otherwise collapses to zero width in a loose Column.
                           child: FractionallySizedBox(
+                            widthFactor: 1.0,
                             heightFactor: m.count == 0 ? 0.02 : (m.count / maxCount).clamp(0.08, 1.0),
                             alignment: Alignment.bottomCenter,
                             child: DecoratedBox(
