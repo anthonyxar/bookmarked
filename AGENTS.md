@@ -1,32 +1,27 @@
 # Bookmarked — agent notes
 
 A reading journal app (wishlist, journal reviews, dashboard, bingo, book
-clubs) currently mid-migration from Postgres/FastAPI/JWT to a fully
-serverless Firebase stack (Firestore, Firebase Auth, Cloud Storage, Cloud
-Functions, FCM). See `docs/adr/0001-migrate-postgres-fastapi-to-firebase.md`
-for why, and GitHub issue #4 (label `firebase-migration`) for the tracking
-issue with all sub-issues.
+clubs) on a fully serverless Firebase stack (Firestore, Firebase Auth, Cloud
+Storage, Cloud Functions, FCM), migrated from Postgres/FastAPI/JWT. See
+`docs/adr/0001-migrate-postgres-fastapi-to-firebase.md` for why, and GitHub
+issue #4 (label `firebase-migration`) for the tracking issue.
 
-## Migration status — read this before touching `backend/` or `app/lib`
+## Migration status
 
-`backend/` (FastAPI + Postgres) is being decommissioned, not extended. New
-work goes through Firestore/Cloud Functions directly from the Flutter client;
-do not add new REST endpoints. Both stacks run side by side in
-`docker-compose.yml` until every domain is migrated and verified (issue #20
-deletes `backend/` and the `db` service last).
+The FastAPI/Postgres backend is gone (deleted in issue #20; last present at
+commit `99e92f1`, so `git show 99e92f1:backend/<path>` recovers the old
+logic). All work goes through Firestore/Cloud Functions directly from the
+Flutter client; do not add REST endpoints or a new server.
 
-Check open issues under the `firebase-migration` label before starting new
-migration work — `gh issue list --label firebase-migration --state open`.
-A `TODO(#N)` comment in `app/lib` points at the issue still blocking full
-removal of the REST call it sits next to.
-
-Some sub-issues need Firebase console access (enabling providers, Blaze
-billing, budget alerts) rather than code — flag those rather than attempting
-them blind.
+Check what's still open with
+`gh issue list --label firebase-migration --state open`. The only remaining
+item is #21 (enabling Google as a sign-in provider), which needs Firebase
+console access rather than code — flag that kind of work rather than
+attempting it blind.
 
 ## Tooling — Docker only
 
-No local Flutter or Python install is assumed or required. Everything runs
+No local Flutter install is assumed or required. Everything runs
 through `docker compose`. Verify Flutter changes with:
 
 ```bash
@@ -37,8 +32,8 @@ The `app` service's default command runs the dev server in `--release` mode
 (`docker-compose.yml`) — a prior debug-mode config caused recurring blank-
 screen hangs, so don't revert that.
 
-Firebase Local Emulator Suite (`firebase` service) replaces `db`+`backend`
-for anything already migrated: Auth (9099), Firestore (8080), Storage
+Firebase Local Emulator Suite (`firebase` service) is the whole local
+backend: Auth (9099), Firestore (8080), Storage
 (9199), Functions (5001), emulator UI (4000). Functions require
 `npm install` inside `functions/` (already committed as
 `functions/package-lock.json`) or the emulator warns on boot.

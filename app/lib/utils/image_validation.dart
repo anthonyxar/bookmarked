@@ -1,6 +1,6 @@
 // Mirrors the retired backend's ALLOWED_AVATAR_TYPES/ALLOWED_CLUB_IMAGE_TYPES
-// and MAX_AVATAR_BYTES/MAX_CLUB_IMAGE_BYTES (backend/app/routers/users.py,
-// clubs.py) — both used the same JPEG/PNG/WEBP/GIF, 5MB limit.
+// and MAX_AVATAR_BYTES/MAX_CLUB_IMAGE_BYTES (`git show
+// 99e92f1:backend/app/routers/users.py`, clubs.py) — both used the same JPEG/PNG/WEBP/GIF, 5MB limit.
 const allowedImageContentTypes = {
   'jpg': 'image/jpeg',
   'jpeg': 'image/jpeg',

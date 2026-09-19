@@ -7,8 +7,8 @@ import '../models/bingo.dart';
 import 'auth_provider.dart';
 import 'year_provider.dart';
 
-// Mirrors the retired backend's DEFAULT_LABELS (backend/app/routers/bingo.py)
-// — position 12 is the fixed FREE SPACE, pre-completed and locked.
+// Mirrors the retired backend's DEFAULT_LABELS (`git show
+// 99e92f1:backend/app/routers/bingo.py`) — position 12 is the fixed FREE SPACE, pre-completed and locked.
 const _defaultLabels = [
   "Read a debut author", "Book under 250 pages", "Author you've never read", "One-word title", "Read outdoors",
   "A retelling", "Book club pick", "Enemies to lovers", "A buddy read", "Published this year",

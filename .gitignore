@@ -1,12 +1,9 @@
 # env
 .env
 
-# Python
-backend/__pycache__/
-backend/**/__pycache__/
-backend/.venv/
+# Leftover dev uploads from the deleted FastAPI backend (untracked; remove
+# this line once backend/uploads/ is deleted from disk)
 backend/uploads/
-*.pyc
 
 # Flutter / Dart
 app/.dart_tool/

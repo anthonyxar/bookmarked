@@ -11,7 +11,8 @@ import 'year_provider.dart';
 
 // Wildcard round pairs the 8 non-bye months (in month order); the 4
 // highest-rated months skip straight to the quarterfinals. Mirrors the
-// retired backend's _compute_bracket (backend/app/routers/bracket.py).
+// retired backend's _compute_bracket (`git show
+// 99e92f1:backend/app/routers/bracket.py`).
 const _byeCount = 4;
 
 typedef _Entry = MapEntry<int, Book>; // month -> book
