@@ -13,11 +13,14 @@ commit `99e92f1`, so `git show 99e92f1:backend/<path>` recovers the old
 logic). All work goes through Firestore/Cloud Functions directly from the
 Flutter client; do not add REST endpoints or a new server.
 
-Check what's still open with
-`gh issue list --label firebase-migration --state open`. The only remaining
-item is #21 (enabling Google as a sign-in provider), which needs Firebase
-console access rather than code — flag that kind of work rather than
-attempting it blind.
+The migration is finished: every `firebase-migration` issue, including the
+tracking issue #4, is closed. Nothing deploys automatically — rules, indexes,
+storage rules and functions reach the real project (`bookmarked-87332`) only
+through a manual `firebase deploy --project bookmarked-87332` (interactive
+login, run from the `firebase` service). Work that needs Firebase console
+access (providers, billing, App Check, deploys) — flag it rather than
+attempting it blind. The project has a Firebase spend cap that pauses services
+when exceeded, so the ADR's "no hard cap" statement is out of date.
 
 ## Tooling — Docker only
 
