@@ -203,14 +203,11 @@ final clubNotesProvider = StateNotifierProvider.family<ClubNotesNotifier, ClubNo
 
 // --- Reviews -----------------------------------------------------
 
-// NOT migrated by issue #14: `list_reviews` reads every active member's
-// personal `books` doc (title/author-matched) to build the cross-member
-// review list, but issue #9's Firestore rules only let a user read their
-// own `users/{uid}/books/**`. A pure client migration would need those
-// rules loosened (a real privacy regression) — this almost certainly needs
-// a Cloud Function instead, which is outside #14's "plain CRUD" scope.
-// Left on the REST backend until that's designed (flagged in #14's closing
-// comment; file a follow-up issue before deleting `backend/` in #20).
+// Served by the `listClubReviews` Cloud Function rather than a client query:
+// the cross-member review list reads every active member's personal `books`
+// doc (title/author-matched), but issue #9's Firestore rules only let a user
+// read their own `users/{uid}/books/**`, and loosening them would be a real
+// privacy regression.
 typedef ClubReviewsArgs = ({String clubId, String clubBookId});
 
 class ClubReviewsState {
